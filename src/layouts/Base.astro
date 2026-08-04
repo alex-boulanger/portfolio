@@ -1,0 +1,257 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import Flowfield from '../components/Flowfield.astro';
+import Header from '../components/Header.astro';
+
+interface Props {
+	title?: string;
+	description?: string;
+	/** Set false on pages that exist in one locale only — otherwise they'd
+	 * advertise an hreflang alternate that 404s. */
+	localized?: boolean;
+}
+
+const { title = 'alex boulanger', description, localized = true } = Astro.props;
+const lang = Astro.currentLocale ?? 'en';
+
+const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
+const alternates = localized
+	? [
+			{ hreflang: 'en', href: path },
+			{ hreflang: 'fr', href: `/fr${path === '/' ? '' : path}` },
+		]
+	: [];
+---
+
+<!doctype html>
+<html lang={lang}>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="color-scheme" content="dark" />
+		<title>{title}</title>
+		{description && <meta name="description" content={description} />}
+		{alternates.map((a) => <link rel="alternate" hreflang={a.hreflang} href={a.href} />)}
+		<ClientRouter />
+	</head>
+	<body>
+		<Flowfield />
+		<Header />
+		<main>
+			<slot />
+		</main>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--bg: #0a0a0a;
+		--fg: #ffffff;
+		/* The only color in the design; decoration only, never load-bearing. */
+		--glitch: #0000ff;
+		color-scheme: dark;
+	}
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		margin: 0;
+		height: 100%;
+		overflow: hidden;
+		overscroll-behavior: none;
+	}
+
+	body {
+		background: var(--bg);
+		color: var(--fg);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	main {
+		position: relative;
+		z-index: 1;
+		height: 100dvh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	main :is(a, button) {
+		pointer-events: auto;
+	}
+
+	/* Same inversion as link hover, so selection reads as part of the system. */
+	::selection {
+		background: var(--glitch);
+		color: var(--fg);
+	}
+
+	/* Every link on the site is a glitch link, however it was authored —
+	   <GlitchLink />, markdown, or hand-written <a>. One selector, no opt-in. */
+	a {
+		position: relative;
+		display: inline-block;
+		color: var(--fg);
+		text-decoration: none;
+		/* Padding is always present and cancelled by an equal negative margin,
+		   so the hover block has room to sit behind the text without shifting
+		   anything around it when it appears. */
+		padding: 0.25em 0.45em;
+		margin: -0.25em -0.45em;
+		/* Scrim so the type stays readable over the field, without a bar. */
+		text-shadow:
+			0 0 6px var(--bg),
+			0 0 14px var(--bg),
+			0 0 22px var(--bg);
+		/* Monospace + pre keeps scrambled glyphs on the exact same footprint,
+		   so nothing reflows mid-effect. */
+		white-space: pre;
+	}
+
+	a[aria-current='page'] {
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.4em;
+	}
+
+	/* Hover inverts to a solid blue block; the scrim is dead weight over it.
+	   The only motion is the one-shot ASCII scramble driven from the script. */
+	a:hover,
+	a:focus-visible {
+		background: var(--glitch);
+		color: var(--fg);
+		text-shadow: none;
+		outline: none;
+	}
+
+	/* The field is persisted and only the title changes, so a full-page
+	   crossfade would snapshot the whole canvas for nothing. */
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+		mix-blend-mode: normal;
+	}
+</style>
+
+<script>
+	// Delegated from the document so links added by client-side navigation —
+	// or emitted by markdown — keep working without re-running this module.
+	if (!(window as any).__glitchLinks) {
+		(window as any).__glitchLinks = true;
+
+		// Same ramp the flowfield draws with, so the scramble reads as part
+		// of the same alphabet.
+		const CHARS = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'.';
+		const DURATION = 420; // ms to fully resolve
+		const TICK = 45; // ms a random glyph holds before rerolling
+
+		const running = new Map<HTMLElement, number>();
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let hovered: HTMLElement | null = null;
+
+		// Links not authored through <GlitchLink /> arrive bare. Give them the
+		// label the scramble restores from, and send off-site ones to a new tab.
+		function prepare() {
+			document.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => {
+				if (!a.dataset.label) a.dataset.label = a.textContent ?? '';
+				if (!a.target && a.hostname && a.hostname !== location.hostname) {
+					a.target = '_blank';
+					a.rel = 'noopener noreferrer';
+				}
+			});
+		}
+
+		function settle(el: HTMLElement) {
+			const id = running.get(el);
+			if (id !== undefined) {
+				cancelAnimationFrame(id);
+				running.delete(el);
+			}
+			const label = el.dataset.label;
+			if (label) el.textContent = label;
+		}
+
+		function scramble(el: HTMLElement) {
+			const label = el.dataset.label ?? el.textContent ?? '';
+			if (!label) return;
+
+			const id = running.get(el);
+			if (id !== undefined) cancelAnimationFrame(id);
+
+			const start = performance.now();
+			let lastTick = -1;
+
+			const step = (now: number) => {
+				const elapsed = now - start;
+				const p = Math.min(1, elapsed / DURATION);
+				const tick = (elapsed / TICK) | 0;
+
+				// Reroll random glyphs only every TICK ms; otherwise the text
+				// churns at 60fps and reads as noise rather than a decode.
+				if (tick !== lastTick) {
+					lastTick = tick;
+					let out = '';
+					for (let i = 0; i < label.length; i++) {
+						const ch = label[i];
+						if (ch === ' ') {
+							out += ' ';
+							continue;
+						}
+						// Characters resolve left to right across the word.
+						const resolveAt = ((i + 1) / label.length) * 0.8;
+						out += p >= resolveAt ? ch : CHARS[(Math.random() * CHARS.length) | 0];
+					}
+					el.textContent = out;
+				}
+
+				if (p < 1) {
+					running.set(el, requestAnimationFrame(step));
+				} else {
+					settle(el);
+				}
+			};
+
+			running.set(el, requestAnimationFrame(step));
+		}
+
+		function enter(target: EventTarget | null) {
+			if (!(target instanceof Element)) return;
+			const link = target.closest<HTMLElement>('a');
+			if (!link || link === hovered) return;
+			hovered = link;
+			if (!reduced.matches) scramble(link);
+		}
+
+		document.addEventListener('pointerover', (e) => enter(e.target), { passive: true });
+		document.addEventListener('focusin', (e) => enter(e.target));
+
+		document.addEventListener(
+			'pointerout',
+			(e) => {
+				if (!(e.target instanceof Element)) return;
+				const link = e.target.closest<HTMLElement>('a');
+				if (link && link === hovered) hovered = null;
+			},
+			{ passive: true }
+		);
+
+		prepare();
+		document.addEventListener('astro:page-load', prepare);
+
+		// A navigation can swap the DOM mid-scramble; drop any stale handles.
+		document.addEventListener('astro:before-swap', () => {
+			running.forEach((id) => cancelAnimationFrame(id));
+			running.clear();
+			hovered = null;
+		});
+	}
+</script>

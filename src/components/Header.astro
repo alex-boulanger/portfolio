@@ -1,0 +1,60 @@
+---
+import GlitchLink from './GlitchLink.astro';
+
+const locale = Astro.currentLocale ?? 'en';
+
+// The same page in the other locale, so switching never loses your place.
+const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
+const frPath = `/fr${path === '/' ? '' : path}`;
+
+// Nav is parked until there's something behind it. `works` will point at the
+// cv subdomain once it's live; `lab` stays an internal route. The /works and
+// /lab pages still exist — uncomment these two blocks to bring them back.
+// const links = [
+// 	{ href: 'https://cv.alex-boulanger.dev', label: 'works' },
+// 	{ href: locale === 'fr' ? '/fr/lab' : '/lab', label: 'lab' },
+// ];
+---
+
+<header>
+	<GlitchLink href={locale === 'fr' ? '/fr' : '/'} label="alex boulanger" />
+	{
+		/* <nav>
+		{links.map((l) => <GlitchLink href={l.href} label={l.label} current={path === l.href} />)}
+	</nav> */
+	}
+	<nav class="lang">
+		<GlitchLink href={path} label="en" current={locale === 'en'} />
+		<GlitchLink href={frPath} label="fr" current={locale === 'fr'} />
+	</nav>
+</header>
+
+<style>
+	header {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 2;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1.5rem 1.75rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.08em;
+	}
+
+	nav {
+		display: flex;
+		gap: 1.5rem;
+	}
+
+	@media (max-width: 600px) {
+		header {
+			padding: 1.1rem 1.1rem;
+		}
+		nav {
+			gap: 1.1rem;
+		}
+	}
+</style>

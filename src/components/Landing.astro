@@ -1,0 +1,69 @@
+---
+import { render, type CollectionEntry } from 'astro:content';
+import GlitchLink from './GlitchLink.astro';
+
+interface Props {
+	entry: CollectionEntry<'landing'>;
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<section class="intro">
+	<Content />
+	<nav class="elsewhere">
+		{entry.data.links.map((l) => <GlitchLink href={l.href} label={l.label} />)}
+	</nav>
+</section>
+
+<style>
+	.intro {
+		max-width: 34rem;
+		padding: 0 1.75rem;
+		font-size: 0.8125rem;
+		line-height: 2;
+		letter-spacing: 0.04em;
+		color: var(--fg);
+		/* Same scrim as the header type, so the copy holds against the field. */
+		text-shadow:
+			0 0 6px var(--bg),
+			0 0 14px var(--bg),
+			0 0 26px var(--bg);
+		animation: in 0.7s ease both;
+	}
+
+	/* Markdown output isn't scoped by Astro, so paragraphs need :global. */
+	.intro :global(p) {
+		margin: 0 0 1.6em;
+		text-wrap: pretty;
+	}
+
+	.elsewhere {
+		display: flex;
+		gap: 1.5rem;
+		margin-top: 2.4rem;
+	}
+
+	@keyframes in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.intro {
+			animation: none;
+		}
+	}
+
+	@media (max-width: 600px) {
+		.intro {
+			padding: 0 1.1rem;
+			line-height: 1.9;
+		}
+	}
+</style>

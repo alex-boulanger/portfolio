@@ -1,0 +1,25 @@
+---
+// Markup convenience only. The `.glitch` appearance and the scramble script
+// live in Base.astro, because markdown links get the same treatment via the
+// rehype-glitch-links plugin and can't reach Astro's scoped styles.
+interface Props {
+	href: string;
+	label: string;
+	/** Marks the link as the current page (adds aria-current + an underline). */
+	current?: boolean;
+}
+
+const { href, label, current = false } = Astro.props;
+
+// Off-site links open in a new tab; rel guards the opener reference.
+const external = /^https?:\/\//.test(href);
+---
+
+<a
+	class="glitch"
+	href={href}
+	data-label={label}
+	target={external ? '_blank' : undefined}
+	rel={external ? 'noopener noreferrer' : undefined}
+	aria-current={current ? 'page' : undefined}>{label}</a
+>

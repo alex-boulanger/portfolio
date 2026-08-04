@@ -1,0 +1,339 @@
+---
+// Full-viewport ASCII flowfield. Lives in the layout and is marked
+// transition:persist so navigation never restarts the animation.
+---
+
+<canvas id="flowfield" transition:persist aria-hidden="true"></canvas>
+
+<style>
+	#flowfield {
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+		z-index: 0;
+		pointer-events: none;
+	}
+</style>
+
+<script>
+	// Guard: with ClientRouter this module evaluates once, but the flag also
+	// protects against a stray re-run leaving two loops on one canvas.
+	if (!(window as any).__flowfield) {
+		(window as any).__flowfield = true;
+		start();
+	}
+
+	function start() {
+		const el = document.getElementById('flowfield');
+		if (!(el instanceof HTMLCanvasElement)) return;
+		const canvas: HTMLCanvasElement = el;
+		const ctx = canvas.getContext('2d', { alpha: false })!;
+
+		// Density ramp, darkest-first. Reversed so index 0 is the faintest
+		// glyph, with a leading space for genuinely empty cells.
+		const RAMP =
+			' ' +
+			'$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'.'
+				.split('')
+				.reverse()
+				.join('');
+		const FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+		const BG = '#0a0a0a';
+		const FG = '#7a7a7a';
+
+		// Glyph density carries most of the tone; a few flat greys on top give
+		// the field depth, so cores read as foreground and haze recedes. FG is
+		// the ceiling — the brightest cells never exceed the tuned value.
+		const SHADE_FLOOR = '#454545';
+		const SHADES = buildShades(SHADE_FLOOR, FG, 7);
+
+		function buildShades(from: string, to: string, steps: number) {
+			const a = parseInt(from.slice(1), 16);
+			const b = parseInt(to.slice(1), 16);
+			const out: string[] = [];
+			for (let i = 0; i < steps; i++) {
+				const k = steps === 1 ? 1 : i / (steps - 1);
+				const ch = (shift: number) => {
+					const av = (a >> shift) & 255;
+					const bv = (b >> shift) & 255;
+					return Math.round(av + (bv - av) * k);
+				};
+				out.push(`rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`);
+			}
+			return out;
+		}
+
+		// v(0..1) -> ramp index. Gamma > 1 keeps low densities down at the
+		// faint end of the ramp so only real currents climb toward $@B%.
+		const LUT = new Uint8Array(256);
+		const SHADE_LUT = new Uint8Array(256);
+		for (let i = 0; i < 256; i++) {
+			LUT[i] = Math.min(RAMP.length - 1, (Math.pow(i / 255, 1.25) * RAMP.length) | 0);
+			SHADE_LUT[i] = Math.min(SHADES.length - 1, (Math.pow(i / 255, 1.25) * SHADES.length) | 0);
+		}
+
+		// ---- perlin ---------------------------------------------------------
+		const perm = new Uint8Array(512);
+		{
+			const p = new Uint8Array(256);
+			for (let i = 0; i < 256; i++) p[i] = i;
+			let s = 1337;
+			for (let i = 255; i > 0; i--) {
+				s = (s * 1664525 + 1013904223) >>> 0;
+				const j = (s / 4294967296) * (i + 1) | 0;
+				const t = p[i]; p[i] = p[j]; p[j] = t;
+			}
+			for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+		}
+		const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+		const lerp = (a: number, b: number, t: number) => a + t * (b - a);
+		function grad(h: number, x: number, y: number, z: number) {
+			h &= 15;
+			const u = h < 8 ? x : y;
+			const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+			return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+		}
+		function noise(x: number, y: number, z: number) {
+			const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+			x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+			const u = fade(x), v = fade(y), w = fade(z);
+			const A = perm[X] + Y, AA = perm[A] + Z, AB = perm[A + 1] + Z;
+			const B = perm[X + 1] + Y, BA = perm[B] + Z, BB = perm[B + 1] + Z;
+			return lerp(
+				lerp(
+					lerp(grad(perm[AA], x, y, z), grad(perm[BA], x - 1, y, z), u),
+					lerp(grad(perm[AB], x, y - 1, z), grad(perm[BB], x - 1, y - 1, z), u),
+					v
+				),
+				lerp(
+					lerp(grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1), u),
+					lerp(grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1), u),
+					v
+				),
+				w
+			);
+		}
+
+		// ---- tunables -------------------------------------------------------
+		const NOISE_SCALE = 0.0025;   // flow feature size, in px
+		const TIME_SCALE = 0.11;      // how fast the field itself evolves
+		// A trail lives ~1/(1-DECAY) frames. SPEED against that window sets the
+		// look: fast enough to cross many cells and streaks read as lines, slow
+		// enough and they stay as drifting points.
+		const SPEED = 50;             // px/s
+		const DECAY = 0.975;          // trail persistence per frame
+		const DEPOSIT = 0.15;         // how much a particle adds to the field per frame
+		const AMBIENT = 0.06;         // faint background grain
+		const RADIUS = 150;           // mouse influence, px
+		const REPEL = 620;
+		const WAKE = 9;               // how much cursor velocity drags the field
+
+		let W = 0, H = 0, dpr = 1;
+		let cols = 0, rows = 0, cellW = 8, cellH = 10;
+		let buf = new Float32Array(0);
+		let ambient = new Float32Array(0);
+		let px = new Float32Array(0), py = new Float32Array(0), life = new Int32Array(0);
+		let count = 0;
+
+		// Per-row scratch for the shade passes: resolved glyph + shade per cell,
+		// plus each shade's column extent so a pass only draws its own span.
+		let glyph = new Uint8Array(0);
+		let shade = new Uint8Array(0);
+		const minC = new Int32Array(SHADES.length);
+		const maxC = new Int32Array(SHADES.length);
+
+		let mx = -1e5, my = -1e5, mvx = 0, mvy = 0, hasPointer = false;
+		let t = 0, last = 0, running = true;
+
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+		function resize() {
+			dpr = Math.min(window.devicePixelRatio || 1, 2);
+			W = window.innerWidth;
+			H = window.innerHeight;
+			canvas.width = Math.round(W * dpr);
+			canvas.height = Math.round(H * dpr);
+			canvas.style.width = W + 'px';
+			canvas.style.height = H + 'px';
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+			// 8px on desktop, stepping up so small screens stay legible.
+			const fontSize = W < 600 ? 12 : W < 1024 ? 10 : 8;
+			ctx.font = `${fontSize}px ${FONT}`;
+			ctx.textBaseline = 'top';
+			cellW = ctx.measureText('M').width || fontSize * 0.6;
+			cellH = fontSize * 1.15;
+
+			cols = Math.ceil(W / cellW) + 1;
+			rows = Math.ceil(H / cellH) + 1;
+
+			buf = new Float32Array(cols * rows);
+			ambient = new Float32Array(cols * rows);
+			glyph = new Uint8Array(cols);
+			shade = new Uint8Array(cols);
+			for (let r = 0; r < rows; r++) {
+				for (let c = 0; c < cols; c++) {
+					ambient[r * cols + c] = (noise(c * 0.028, r * 0.055, 0) + 1) * 0.5;
+				}
+			}
+
+			count = Math.max(400, Math.min(2500, ((cols * rows) / 35) | 0));
+			px = new Float32Array(count);
+			py = new Float32Array(count);
+			life = new Int32Array(count);
+			for (let i = 0; i < count; i++) respawn(i);
+		}
+
+		function respawn(i: number) {
+			px[i] = Math.random() * W;
+			py[i] = Math.random() * H;
+			life[i] = 120 + ((Math.random() * 260) | 0);
+		}
+
+		function step(dt: number) {
+			t += dt;
+			for (let i = 0; i < count; i++) {
+				const a = noise(px[i] * NOISE_SCALE, py[i] * NOISE_SCALE, t * TIME_SCALE) * Math.PI * 3;
+				let vx = Math.cos(a) * SPEED;
+				let vy = Math.sin(a) * SPEED;
+
+				const dx = px[i] - mx, dy = py[i] - my;
+				const d2 = dx * dx + dy * dy;
+				if (d2 < RADIUS * RADIUS) {
+					const d = Math.sqrt(d2) || 1;
+					const f = 1 - d / RADIUS;
+					vx += (dx / d) * f * REPEL + mvx * f * WAKE;
+					vy += (dy / d) * f * REPEL + mvy * f * WAKE;
+				}
+
+				let x = px[i] + vx * dt;
+				let y = py[i] + vy * dt;
+				if (x < 0) x += W; else if (x >= W) x -= W;
+				if (y < 0) y += H; else if (y >= H) y -= H;
+				px[i] = x; py[i] = y;
+
+				const c = (x / cellW) | 0;
+				const r = (y / cellH) | 0;
+				if (c >= 0 && c < cols && r >= 0 && r < rows) buf[r * cols + c] += DEPOSIT;
+
+				if (--life[i] <= 0) respawn(i);
+			}
+
+			mvx *= 0.86;
+			mvy *= 0.86;
+		}
+
+		function render() {
+			ctx.fillStyle = BG;
+			ctx.fillRect(0, 0, W, H);
+
+			// Ambient grain drifts slowly so empty regions aren't dead.
+			const ox = (t * 2) | 0, oy = (t * 0.8) | 0;
+			const shadeCount = SHADES.length;
+
+			for (let r = 0; r < rows; r++) {
+				const base = r * cols;
+				const arow = ((r + oy) % rows) * cols;
+
+				for (let s = 0; s < shadeCount; s++) {
+					minC[s] = cols;
+					maxC[s] = -1;
+				}
+
+				// Pass 1: decay the buffer and resolve each cell once.
+				for (let c = 0; c < cols; c++) {
+					let v = buf[base + c] * DECAY;
+					buf[base + c] = v;
+					v += ambient[arow + ((c + ox) % cols)] * AMBIENT;
+					if (v > 1) v = 1;
+
+					const q = (v * 255) | 0;
+					const gi = LUT[q];
+					glyph[c] = gi;
+					if (gi === 0) {
+						shade[c] = 255; // blank cell, drawn by nobody
+						continue;
+					}
+					const si = SHADE_LUT[q];
+					shade[c] = si;
+					if (c < minC[si]) minC[si] = c;
+					if (c > maxC[si]) maxC[si] = c;
+				}
+
+				// Pass 2: one fillText per shade present in this row. Cells
+				// belonging to other shades become spaces, which cost nothing
+				// and keep every glyph on its exact column.
+				const y = r * cellH;
+				for (let s = 0; s < shadeCount; s++) {
+					const from = minC[s];
+					const to = maxC[s];
+					if (to < from) continue;
+					let line = '';
+					for (let c = from; c <= to; c++) {
+						line += shade[c] === s ? RAMP[glyph[c]] : ' ';
+					}
+					ctx.fillStyle = SHADES[s];
+					ctx.fillText(line, from * cellW, y);
+				}
+			}
+		}
+
+		function frame(now: number) {
+			if (!running) return;
+			const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
+			last = now;
+			step(dt);
+			render();
+			requestAnimationFrame(frame);
+		}
+
+		function boot() {
+			resize();
+			if (reduced.matches) {
+				// Settle the field, then hold a single static frame.
+				for (let i = 0; i < 240; i++) step(0.016);
+				render();
+				return;
+			}
+			running = true;
+			last = 0;
+			requestAnimationFrame(frame);
+		}
+
+		window.addEventListener('resize', () => {
+			resize();
+			if (reduced.matches) render();
+		});
+
+		window.addEventListener('pointermove', (e) => {
+			if (hasPointer) {
+				mvx = e.clientX - mx;
+				mvy = e.clientY - my;
+			}
+			hasPointer = true;
+			mx = e.clientX;
+			my = e.clientY;
+		}, { passive: true });
+
+		window.addEventListener('pointerleave', () => {
+			hasPointer = false;
+			mx = my = -1e5;
+			mvx = mvy = 0;
+		});
+
+		document.addEventListener('visibilitychange', () => {
+			if (reduced.matches) return;
+			if (document.hidden) {
+				running = false;
+			} else if (!running) {
+				running = true;
+				last = 0;
+				requestAnimationFrame(frame);
+			}
+		});
+
+		boot();
+	}
+</script>
