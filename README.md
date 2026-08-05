@@ -1,43 +1,55 @@
-# Astro Starter Kit: Minimal
+# alex-boulanger.dev
+
+Personal site for Alex Boulanger. It is a small Astro static site used as a
+professional front door: explain who Alex is, then send visitors to the CV,
+GitHub, or LinkedIn.
+
+The site is deliberately narrow: one handcrafted landing experience, English at
+the root, French at `/fr`, and a couple of parked routes for future work.
+
+## Stack
+
+- Astro 7 static output.
+- pnpm.
+- Node `>=22.12.0`.
+- No UI framework or CSS framework.
+- Cloudflare Pages for production hosting.
+
+## Project
+
+- Pages live in `src/pages`.
+- Shared layout and UI live in `src/layouts` and `src/components`.
+- Landing copy lives in `src/content/landing/en.md` and
+  `src/content/landing/fr.md`.
+- Product and design intent live in `PRODUCT.md` and `DESIGN.md`.
+
+## Commands
 
 ```sh
-pnpm create astro@latest -- --template minimal
+pnpm install
+pnpm run build
+pnpm run preview
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+For local development, prefer Astro background mode:
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```sh
+pnpm astro dev --background
+pnpm astro dev status
+pnpm astro dev logs
+pnpm astro dev stop
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Deploy
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Deploys run from GitHub Actions on pushes to `main` and manual dispatches.
 
-Any static assets, like images, can be placed in the `public/` directory.
+- Platform: Cloudflare Pages.
+- Pages project: `alex-boulanger`.
+- Build output: `dist`, configured in `wrangler.toml`.
+- GitHub environment: `prod`.
+- Required `prod` secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+The workflow creates the Pages project if it does not exist, then runs
+`wrangler pages deploy --branch=main`. The custom domain
+(`alex-boulanger.dev`) is configured in Cloudflare Pages, not in this repo.

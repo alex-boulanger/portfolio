@@ -1,26 +1,35 @@
 ---
-// The instrument band. Every cell reads a real value off `window.__field` or
-// off the browser itself — grid dimensions, mean density, particle count, the
-// permutation seed, Brussels local time. Nothing here is authored, and nothing
-// here is a claim about Alex; inventing a metric would be the one way this
-// structure could lie.
+// The instrument band, cut back to what the visitor can act on or verify: the
+// renderer currently running, and the seed it was drawn with. Grid size, mean
+// density and local time were readings nobody needed — an instrument that
+// reports everything it can measure is a dashboard, not a design.
 //
-// Marked aria-hidden: it measures a decorative canvas, and a density figure
-// ticking five times a second is noise in a screen reader, not information.
+// Both values are real. Nothing here is authored, and nothing here is a claim
+// about Alex; inventing a metric would be the one way this structure could lie.
+//
+// The seed cell is aria-hidden: it identifies a decorative canvas and means
+// nothing without sight of it. The mode control is not, because it is a real
+// control with a real effect.
 const locale = Astro.currentLocale ?? 'en';
 
-const labels =
+const t =
 	locale === 'fr'
-		? { grid: 'champ', dens: 'dens', trace: 'traces', seed: 'graine', time: 'bru' }
-		: { grid: 'field', dens: 'dens', trace: 'trace', seed: 'seed', time: 'bru' };
+		? { mode: 'mode', seed: 'graine', cycle: 'Changer le mode de rendu du champ' }
+		: { mode: 'mode', seed: 'seed', cycle: 'Change the field render mode' };
+
+// Display names per locale. The renderer ids stay English in the code; these
+// are what the chassis shows.
+const modeNames =
+	locale === 'fr'
+		? { flow: 'flux', dither: 'trame', raster: 'raster', moire: 'moiré' }
+		: { flow: 'flow', dither: 'dither', raster: 'raster', moire: 'moiré' };
 ---
 
-<div class="band" aria-hidden="true">
-	<span class="cell"><i>{labels.grid}</i><b data-cell="grid">····×··</b></span>
-	<span class="cell"><i>{labels.dens}</i><b data-cell="dens">·····</b></span>
-	<span class="cell trace"><i>{labels.trace}</i><b data-cell="trace">····</b></span>
-	<span class="cell seed"><i>{labels.seed}</i><b data-cell="seed">····</b></span>
-	<span class="cell time"><i>{labels.time}</i><b data-cell="time">··:··:··</b></span>
+<div class="band">
+	<button type="button" class="mode" aria-label={t.cycle} data-mode-names={JSON.stringify(modeNames)}>
+		<i>{t.mode}</i><b data-cell="mode" aria-live="polite">····</b>
+	</button>
+	<span class="cell" aria-hidden="true"><i>{t.seed}</i><b data-cell="seed">····</b></span>
 </div>
 
 <style>
@@ -40,7 +49,8 @@ const labels =
 		overflow: hidden;
 	}
 
-	.cell {
+	.cell,
+	.mode {
 		display: inline-flex;
 		align-items: baseline;
 		gap: 0.5em;
@@ -62,18 +72,34 @@ const labels =
 		white-space: pre;
 	}
 
-	/* Narrow screens keep the three cells that describe the field and drop the
-	   two that merely identify it. */
-	@media (max-width: 720px) {
-		.cell.seed {
-			display: none;
-		}
+	/* The system's one interactive treatment, reused rather than reinvented:
+	   the same inversion a link takes, on the same padding-cancelled box. A
+	   mode selector is native to an instrument; a styled button would not be. */
+	.mode {
+		appearance: none;
+		background: none;
+		border: 0;
+		font: inherit;
+		letter-spacing: inherit;
+		text-transform: inherit;
+		color: var(--fg);
+		cursor: pointer;
+		padding: 0.25em 0.45em;
+		margin: -0.25em -0.45em;
+	}
+
+	.mode:hover,
+	.mode:focus-visible {
+		background: var(--glitch);
+		outline: none;
+	}
+
+	.mode:hover i,
+	.mode:focus-visible i {
+		color: var(--fg);
 	}
 
 	@media (max-width: 520px) {
-		.cell.trace {
-			display: none;
-		}
 		.band {
 			gap: 1.1rem;
 			padding: 0.5rem 0.65rem;
@@ -85,7 +111,9 @@ const labels =
 <script>
 	// Part of the power-on: the cells decode out of the same glyph alphabet the
 	// field draws with, then hand over to live values. One sequence, not a
-	// second effect — the plate draws, the cells resolve, the log lands.
+	// second effect — the plate draws, the cells resolve, the log lands. The
+	// same decode replays on a mode change, so swapping the phenomenon reads as
+	// the instrument re-acquiring rather than a value blinking.
 	if (!(window as any).__readouts) {
 		(window as any).__readouts = true;
 
@@ -95,29 +123,30 @@ const labels =
 		const TICK = 45;
 
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-		const time = new Intl.DateTimeFormat('en-GB', {
-			timeZone: 'Europe/Brussels',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
-		});
 
 		let timer = 0;
+		// Cells mid-decode own their own text; the live tick must not fight it.
+		const decoding = new Set<HTMLElement>();
+
+		function modeNames(): Record<string, string> {
+			const el = document.querySelector<HTMLElement>('[data-mode-names]');
+			try {
+				return el?.dataset.modeNames ? JSON.parse(el.dataset.modeNames) : {};
+			} catch {
+				return {};
+			}
+		}
 
 		function read(key: string) {
 			const f = (window as any).__field;
 			switch (key) {
-				case 'grid':
-					return f ? `${f.cols}×${f.rows}` : '—';
-				case 'dens':
-					return f ? f.density.toFixed(3) : '—';
-				case 'trace':
-					return f ? String(f.particles) : '—';
+				case 'mode': {
+					if (!f) return '····';
+					const names = modeNames();
+					return names[f.mode] ?? f.mode;
+				}
 				case 'seed':
-					return f ? String(f.seed) : '—';
-				case 'time':
-					return time.format(new Date());
+					return f ? f.seedHex : '—';
 				default:
 					return '—';
 			}
@@ -129,6 +158,7 @@ const labels =
 
 		function live() {
 			cells().forEach((el) => {
+				if (decoding.has(el)) return;
 				const key = el.dataset.cell;
 				if (key) el.textContent = read(key);
 			});
@@ -139,6 +169,22 @@ const labels =
 		function decode(el: HTMLElement, target: string, delay: number) {
 			const start = performance.now() + delay;
 			let lastTick = -1;
+			decoding.add(el);
+
+			// The animation runs on rAF, which never fires while the tab is
+			// hidden. Land the real value first so a cell can never be stranded
+			// mid-decode, and keep a timer that settles it if rAF stalls.
+			el.textContent = target;
+			const guard = window.setTimeout(() => {
+				el.textContent = target;
+				decoding.delete(el);
+			}, delay + DECODE + 400);
+
+			const finish = () => {
+				window.clearTimeout(guard);
+				el.textContent = target;
+				decoding.delete(el);
+			};
 
 			const step = (now: number) => {
 				const elapsed = now - start;
@@ -165,6 +211,7 @@ const labels =
 				}
 
 				if (p < 1) requestAnimationFrame(step);
+				else finish();
 			};
 
 			requestAnimationFrame(step);
@@ -172,6 +219,7 @@ const labels =
 
 		function boot() {
 			window.clearInterval(timer);
+			decoding.clear();
 
 			// The field publishes its grid on first resize; until then there is
 			// nothing true to show, so wait rather than print a placeholder.
@@ -186,9 +234,11 @@ const labels =
 						if (key) decode(el, read(key), i * STAGGER);
 					});
 				}
-				// 5Hz: fast enough that the time cell never looks stuck, slow
-				// enough that it costs nothing next to the field's own loop.
-				timer = window.setInterval(live, 200);
+				// Nothing in the band ticks any more: the seed is fixed for the
+				// mount and the mode is event-driven. One late sweep catches the
+				// values that were not ready at first paint, then it stops.
+				timer = window.setInterval(live, 400);
+				window.setTimeout(() => window.clearInterval(timer), 4000);
 			};
 
 			if (ready()) {
@@ -203,6 +253,21 @@ const labels =
 				}, 50);
 			}
 		}
+
+		// Delegated, so the control survives client-side navigation.
+		document.addEventListener('click', (e) => {
+			if (!(e.target instanceof Element)) return;
+			if (!e.target.closest('.mode')) return;
+			document.dispatchEvent(new CustomEvent('field:cycle'));
+		});
+
+		document.addEventListener('field:mode', () => {
+			const el = document.querySelector<HTMLElement>('[data-cell="mode"]');
+			if (!el) return;
+			const target = read('mode');
+			if (reduced.matches) el.textContent = target;
+			else decode(el, target, 0);
+		});
 
 		boot();
 		document.addEventListener('astro:page-load', boot);

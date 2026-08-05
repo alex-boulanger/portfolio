@@ -1,6 +1,6 @@
 ---
 import { ClientRouter } from 'astro:transitions';
-import Flowfield from '../components/Flowfield.astro';
+import Field from '../components/Field.astro';
 import Header from '../components/Header.astro';
 import Readouts from '../components/Readouts.astro';
 import Crosshair from '../components/Crosshair.astro';
@@ -52,9 +52,10 @@ const alternates = localized
 		STORY: an evaluator meets an instrument measuring its own artifact, reads four
 		true lines, and leaves for the CV or GitHub.
 		FIRST VIEWPORT: identifier top-left and locale pair top-right; a hairline
-		readout band of genuinely computed values; a framed observation plate holding
-		the canvas, corner ticks and a live crosshair; the log entry bottom-left inside
-		the plate at the largest type on the page; the channel row beneath.
+		readout band of genuinely computed values, opening with the mode control; a
+		framed observation plate holding the canvas, corner ticks and a live crosshair;
+		the log entry bottom-left inside the plate at the largest type on the page; the
+		channel row beneath. Seed and renderer are both drawn fresh on each mount.
 		FORM: Station, candidate 6 of 6, seed 27ad4b60.
 		FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 		-->
@@ -62,7 +63,7 @@ const alternates = localized
 			<Header />
 			<Readouts />
 			<div class="plate">
-				<Flowfield />
+				<Field />
 				<div class="frame" aria-hidden="true">
 					<span class="tick tl"></span>
 					<span class="tick tr"></span>
@@ -83,13 +84,8 @@ const alternates = localized
 	:root {
 		--bg: #0a0a0a;
 		--fg: #ffffff;
-		/* The only color in the design; decoration only, never load-bearing. */
 		--glitch: #0000ff;
-		/* Chassis hairlines. One weight everywhere; the instrument has no
-		   heavier rule and no second tone. */
 		--rule: rgba(255, 255, 255, 0.15);
-		/* Readout type. Held above the 4.5:1 floor against --bg rather than
-		   dimmed to taste — these are labels, not decoration. */
 		--dim: rgba(255, 255, 255, 0.68);
 		/* Marks only: ticks and the crosshair. Never carries text. */
 		--mark: rgba(255, 255, 255, 0.55);
@@ -270,8 +266,6 @@ const alternates = localized
 		}
 	}
 
-	/* The field is persisted and only the title changes, so a full-page
-	   crossfade would snapshot the whole canvas for nothing. */
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;
@@ -280,13 +274,9 @@ const alternates = localized
 </style>
 
 <script>
-	// Delegated from the document so links added by client-side navigation —
-	// or emitted by markdown — keep working without re-running this module.
 	if (!(window as any).__glitchLinks) {
 		(window as any).__glitchLinks = true;
 
-		// Same ramp the flowfield draws with, so the scramble reads as part
-		// of the same alphabet.
 		const CHARS = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'.';
 		const DURATION = 420; // ms to fully resolve
 		const TICK = 45; // ms a random glyph holds before rerolling
@@ -295,8 +285,6 @@ const alternates = localized
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 		let hovered: HTMLElement | null = null;
 
-		// Links not authored through <GlitchLink /> arrive bare. Give them the
-		// label the scramble restores from, and send off-site ones to a new tab.
 		function prepare() {
 			document.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => {
 				if (!a.dataset.label) a.dataset.label = a.textContent ?? '';

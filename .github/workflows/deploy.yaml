@@ -1,0 +1,107 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4.4.0
+        with:
+          version: 10.8.1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run build
+
+      - name: Read Cloudflare Pages project name
+        id: pages
+        run: |
+          project_name="$(sed -n 's/^name = "\([^"]*\)"$/\1/p' wrangler.toml | head -n 1)"
+          test -n "$project_name" || {
+            echo "Missing Cloudflare Pages project name in wrangler.toml"
+            exit 1
+          }
+          echo "project_name=$project_name" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Cloudflare secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || {
+            echo "Missing Cloudflare secret: CLOUDFLARE_API_TOKEN"
+            exit 1
+          }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || {
+            echo "Missing Cloudflare secret: CLOUDFLARE_ACCOUNT_ID"
+            exit 1
+          }
+
+      - name: Ensure Cloudflare Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT_NAME: ${{ steps.pages.outputs.project_name }}
+        run: |
+          status=$(curl -sS -o /tmp/pages-project.json -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT_NAME" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+
+          case "$status" in
+            200)
+              echo "Cloudflare Pages project exists: $PROJECT_NAME"
+              ;;
+            404)
+              echo "Creating Cloudflare Pages project: $PROJECT_NAME"
+              create_status=$(curl -sS -o /tmp/pages-project-create.json -w "%{http_code}" \
+                -X POST \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects" \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"name\":\"$PROJECT_NAME\",\"production_branch\":\"main\"}")
+              case "$create_status" in
+                200|201)
+                  echo "Created Cloudflare Pages project: $PROJECT_NAME"
+                  ;;
+                *)
+                  echo "Failed to create Cloudflare Pages project: HTTP $create_status"
+                  cat /tmp/pages-project-create.json
+                  exit 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "Failed to check Cloudflare Pages project: HTTP $status"
+              cat /tmp/pages-project.json
+              exit 1
+              ;;
+          esac
+
+      # Project name and output directory come from wrangler.toml.
+      # --branch=main marks this a production deployment.
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy --branch=main
