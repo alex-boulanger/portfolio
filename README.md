@@ -9,11 +9,10 @@ the root, French at `/fr`, and a couple of parked routes for future work.
 
 ## Stack
 
-- Astro 7 static output.
-- pnpm.
-- Node `>=22.12.0`.
-- No UI framework or CSS framework.
-- Cloudflare Pages for production hosting.
+- Astro 7 static output
+- pnpm
+- Node `>=22.12.0`
+- Cloudflare Pages for production hosting
 
 ## Project
 
