@@ -7,6 +7,6 @@ const entry = await getEntry('landing', 'fr');
 if (!entry) throw new Error('Missing landing content for locale "fr"');
 ---
 
-<Base title={entry.data.title} description={entry.data.description}>
+<Base title={entry.data.title} description={entry.data.description} links={entry.data.links}>
 	<Landing entry={entry} />
 </Base>

@@ -1,13 +1,19 @@
 ---
-// Full-viewport ASCII flowfield. Lives in the layout and is marked
-// transition:persist so navigation never restarts the animation.
+// ASCII flowfield. It fills the observation plate rather than the viewport:
+// the plate gives it an edge, which is what makes it an artifact under
+// measurement instead of wallpaper. Marked transition:persist so navigation
+// never restarts the simulation.
+//
+// It also publishes what it is doing to `window.__field`, which is the only
+// source the readouts and the crosshair are allowed to draw from. Every value
+// on the chassis is measured here; none is authored.
 ---
 
 <canvas id="flowfield" transition:persist aria-hidden="true"></canvas>
 
 <style>
 	#flowfield {
-		position: fixed;
+		position: absolute;
 		inset: 0;
 		width: 100%;
 		height: 100%;
@@ -41,13 +47,15 @@
 				.join('');
 		const FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 		const BG = '#0a0a0a';
-		const FG = '#7a7a7a';
+		const FG = '#c0c0c0';
 
-		// Glyph density carries most of the tone; a few flat greys on top give
-		// the field depth, so cores read as foreground and haze recedes. FG is
-		// the ceiling — the brightest cells never exceed the tuned value.
-		const SHADE_FLOOR = '#454545';
-		const SHADES = buildShades(SHADE_FLOOR, FG, 7);
+		// Glyph density carries most of the tone; the greys on top give the
+		// field depth, so cores read as foreground and haze recedes. The band
+		// runs from just off the ground to FG: a narrow band of midtones is
+		// what makes a field like this read flat, because every cell lands in
+		// the same tonal register no matter what the simulation is doing.
+		const SHADE_FLOOR = '#161616';
+		const SHADES = buildShades(SHADE_FLOOR, FG, 12);
 
 		function buildShades(from: string, to: string, steps: number) {
 			const a = parseInt(from.slice(1), 16);
@@ -65,21 +73,27 @@
 			return out;
 		}
 
-		// v(0..1) -> ramp index. Gamma > 1 keeps low densities down at the
-		// faint end of the ramp so only real currents climb toward $@B%.
+		// v(0..1) -> ramp index. Gamma > 1 keeps low densities down at the faint
+		// end of the ramp so only real currents climb toward $@B%. It stays
+		// mild: the tonal range is carried by the shade band below, and pushing
+		// gamma up as well empties the field instead of deepening it.
+		const GAMMA = 1.3;
 		const LUT = new Uint8Array(256);
 		const SHADE_LUT = new Uint8Array(256);
 		for (let i = 0; i < 256; i++) {
-			LUT[i] = Math.min(RAMP.length - 1, (Math.pow(i / 255, 1.25) * RAMP.length) | 0);
-			SHADE_LUT[i] = Math.min(SHADES.length - 1, (Math.pow(i / 255, 1.25) * SHADES.length) | 0);
+			LUT[i] = Math.min(RAMP.length - 1, (Math.pow(i / 255, GAMMA) * RAMP.length) | 0);
+			SHADE_LUT[i] = Math.min(SHADES.length - 1, (Math.pow(i / 255, GAMMA) * SHADES.length) | 0);
 		}
 
 		// ---- perlin ---------------------------------------------------------
+		// The permutation seed. Published to the chassis as SEED, so the number
+		// on screen is the number this field is actually running on.
+		const SEED = 1337;
 		const perm = new Uint8Array(512);
 		{
 			const p = new Uint8Array(256);
 			for (let i = 0; i < 256; i++) p[i] = i;
-			let s = 1337;
+			let s = SEED;
 			for (let i = 255; i > 0; i--) {
 				s = (s * 1664525 + 1013904223) >>> 0;
 				const j = (s / 4294967296) * (i + 1) | 0;
@@ -123,9 +137,24 @@
 		// look: fast enough to cross many cells and streaks read as lines, slow
 		// enough and they stay as drifting points.
 		const SPEED = 50;             // px/s
-		const DECAY = 0.975;          // trail persistence per frame
-		const DEPOSIT = 0.15;         // how much a particle adds to the field per frame
-		const AMBIENT = 0.06;         // faint background grain
+		const DECAY = 0.976;          // trail persistence per frame
+		const DEPOSIT = 0.16;         // how much a particle adds to the field per frame
+		// Ambient is a floor under every cell. It used to flatten the field
+		// because the shade band started at #454545, so every ambient cell
+		// rendered as a visible midtone. With the band starting near the ground
+		// the same grain renders almost black, which is texture rather than haze
+		// — so it can stay generous.
+		const AMBIENT = 0.055;         // faint background grain
+		// How far the field is pushed down behind foreground type, and over how
+		// many px it recovers. This is what separates the log from the field —
+		// the field recedes where the type sits, rather than the type wearing a
+		// glow to survive it. It is also what holds text contrast now that the
+		// bright end of the ramp is genuinely bright.
+		// Scaled per viewport in resize(): a 150px feather is a soft well on a
+		// desktop plate and half the visible field on a phone, where the log
+		// occupies most of the width to begin with.
+		let shadowDepth = 0.92;
+		let feather = 150;
 		const RADIUS = 150;           // mouse influence, px
 		const REPEL = 620;
 		const WAKE = 9;               // how much cursor velocity drags the field
@@ -134,6 +163,8 @@
 		let cols = 0, rows = 0, cellW = 8, cellH = 10;
 		let buf = new Float32Array(0);
 		let ambient = new Float32Array(0);
+		// Per-cell multiplier, 1 everywhere except behind foreground type.
+		let attn = new Float32Array(0);
 		let px = new Float32Array(0), py = new Float32Array(0), life = new Int32Array(0);
 		let count = 0;
 
@@ -147,20 +178,103 @@
 		let mx = -1e5, my = -1e5, mvx = 0, mvy = 0, hasPointer = false;
 		let t = 0, last = 0, running = true;
 
+		// Mean cell density of the last rendered frame, 0..1. Read by the
+		// readout band; recomputed as a by-product of the render it already does.
+		let density = 0;
+
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+		// The chassis reads the instrument through this, never the other way
+		// round. Angle is the same value the particles steer by, so the
+		// crosshair reports the field rather than describing it.
+		const telemetry = {
+			seed: SEED,
+			get cols() { return cols; },
+			get rows() { return rows; },
+			get density() { return density; },
+			get particles() { return count; },
+			/** Flow angle in radians at a plate-local point. */
+			angleAt(x: number, y: number) {
+				return noise(x * NOISE_SCALE, y * NOISE_SCALE, t * TIME_SCALE) * Math.PI * 3;
+			},
+			/** Normalized deposited density at a plate-local point, 0..1. */
+			densityAt(x: number, y: number) {
+				const c = (x / cellW) | 0;
+				const r = (y / cellH) | 0;
+				if (c < 0 || c >= cols || r < 0 || r >= rows) return 0;
+				return Math.min(1, buf[r * cols + c]);
+			},
+		};
+		(window as any).__field = telemetry;
+
+		// Elements that have to stay readable declare themselves with
+		// `data-field-shadow`; the field reads their boxes and steps its own
+		// density down underneath them. Recomputed only on resize and
+		// navigation — the mask is geometry, not per-frame work.
+		function computeShadow() {
+			if (!attn.length) return;
+			attn.fill(1);
+
+			const rect = canvas.getBoundingClientRect();
+			const targets = document.querySelectorAll<HTMLElement>('[data-field-shadow]');
+
+			targets.forEach((el) => {
+				const b = el.getBoundingClientRect();
+				if (b.width < 1 || b.height < 1) return;
+
+				const x0 = b.left - rect.left;
+				const y0 = b.top - rect.top;
+				const x1 = x0 + b.width;
+				const y1 = y0 + b.height;
+
+				const cFrom = Math.max(0, ((x0 - feather) / cellW) | 0);
+				const cTo = Math.min(cols - 1, ((x1 + feather) / cellW) | 0);
+				const rFrom = Math.max(0, ((y0 - feather) / cellH) | 0);
+				const rTo = Math.min(rows - 1, ((y1 + feather) / cellH) | 0);
+
+				for (let r = rFrom; r <= rTo; r++) {
+					const cy = r * cellH + cellH * 0.5;
+					const dy = cy < y0 ? y0 - cy : cy > y1 ? cy - y1 : 0;
+
+					for (let c = cFrom; c <= cTo; c++) {
+						const cx = c * cellW + cellW * 0.5;
+						const dx = cx < x0 ? x0 - cx : cx > x1 ? cx - x1 : 0;
+
+						// Distance to the box, not to its centre, so a wide
+						// block of copy carries an even shadow across its width.
+						const d = Math.hypot(dx, dy);
+						if (d >= feather) continue;
+
+						// Smoothstep: a linear falloff leaves a visible seam
+						// where the shadow ends.
+						const k = 1 - d / feather;
+						const v = 1 - shadowDepth * (k * k * (3 - 2 * k));
+						const i = r * cols + c;
+						if (v < attn[i]) attn[i] = v;
+					}
+				}
+			});
+		}
+
 		function resize() {
+			const rect = canvas.getBoundingClientRect();
+			// The plate can be laid out at zero height for a frame during the
+			// power-on clip; sizing to that would throw away the whole grid.
+			if (rect.width < 1 || rect.height < 1) return;
+
 			dpr = Math.min(window.devicePixelRatio || 1, 2);
-			W = window.innerWidth;
-			H = window.innerHeight;
+			W = rect.width;
+			H = rect.height;
 			canvas.width = Math.round(W * dpr);
 			canvas.height = Math.round(H * dpr);
-			canvas.style.width = W + 'px';
-			canvas.style.height = H + 'px';
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
 			// 8px on desktop, stepping up so small screens stay legible.
 			const fontSize = W < 600 ? 12 : W < 1024 ? 10 : 8;
+			// The log spans nearly the full width on a phone, so the well has to
+			// be tighter and shallower or it swallows the plate.
+			feather = W < 600 ? 64 : W < 1024 ? 110 : 150;
+			shadowDepth = W < 600 ? 0.84 : 0.92;
 			ctx.font = `${fontSize}px ${FONT}`;
 			ctx.textBaseline = 'top';
 			cellW = ctx.measureText('M').width || fontSize * 0.6;
@@ -171,6 +285,7 @@
 
 			buf = new Float32Array(cols * rows);
 			ambient = new Float32Array(cols * rows);
+			attn = new Float32Array(cols * rows);
 			glyph = new Uint8Array(cols);
 			shade = new Uint8Array(cols);
 			for (let r = 0; r < rows; r++) {
@@ -179,11 +294,20 @@
 				}
 			}
 
-			count = Math.max(400, Math.min(2500, ((cols * rows) / 35) | 0));
+			// Denser than the field carried before: the currents are what the
+			// plate is for, and at the old occupancy a wide tonal band just
+			// spreads a few streaks over a lot of empty ground.
+			// One trace per ~30 cells, so a phone's small grid gets the same
+			// visual density as a desktop one. The floor stays low on purpose:
+			// a fixed floor of a few hundred is meaningless on a 2,300-cell
+			// grid and saturates the whole plate into a solid block.
+			count = Math.max(80, Math.min(2800, ((cols * rows) / 30) | 0));
 			px = new Float32Array(count);
 			py = new Float32Array(count);
 			life = new Int32Array(count);
 			for (let i = 0; i < count; i++) respawn(i);
+
+			computeShadow();
 		}
 
 		function respawn(i: number) {
@@ -232,6 +356,7 @@
 			// Ambient grain drifts slowly so empty regions aren't dead.
 			const ox = (t * 2) | 0, oy = (t * 0.8) | 0;
 			const shadeCount = SHADES.length;
+			let sum = 0;
 
 			for (let r = 0; r < rows; r++) {
 				const base = r * cols;
@@ -244,10 +369,16 @@
 
 				// Pass 1: decay the buffer and resolve each cell once.
 				for (let c = 0; c < cols; c++) {
-					let v = buf[base + c] * DECAY;
-					buf[base + c] = v;
-					v += ambient[arow + ((c + ox) % cols)] * AMBIENT;
+					const raw = buf[base + c] * DECAY;
+					buf[base + c] = raw;
+					let v = raw + ambient[arow + ((c + ox) % cols)] * AMBIENT;
 					if (v > 1) v = 1;
+
+					// DENS reports the field, so it is read before the shadow:
+					// the mask is how the field is displayed under type, not
+					// something the simulation is doing.
+					sum += v;
+					v *= attn[base + c];
 
 					const q = (v * 255) | 0;
 					const gi = LUT[q];
@@ -278,6 +409,8 @@
 					ctx.fillText(line, from * cellW, y);
 				}
 			}
+
+			density = cols && rows ? sum / (cols * rows) : 0;
 		}
 
 		function frame(now: number) {
@@ -302,19 +435,47 @@
 			requestAnimationFrame(frame);
 		}
 
-		window.addEventListener('resize', () => {
-			resize();
+		// The plate resizes on viewport changes and on the power-on clip
+		// settling, neither of which a window resize listener would catch.
+		let resizeQueued = false;
+		const ro = new ResizeObserver(() => {
+			if (resizeQueued) return;
+			resizeQueued = true;
+			requestAnimationFrame(() => {
+				resizeQueued = false;
+				resize();
+				if (reduced.matches) render();
+			});
+		});
+		ro.observe(canvas);
+
+		// The log arrives on a short rise, and a navigation swaps which element
+		// sits over the field. Both move the boxes the mask is cut from, and
+		// neither is a resize.
+		function refreshShadow() {
+			computeShadow();
 			if (reduced.matches) render();
+		}
+
+		window.setTimeout(refreshShadow, 1600);
+		document.addEventListener('astro:page-load', () => {
+			refreshShadow();
+			window.setTimeout(refreshShadow, 1600);
 		});
 
+		// Pointer coordinates are plate-local: the field no longer fills the
+		// viewport, so client coordinates would be offset by the chassis.
 		window.addEventListener('pointermove', (e) => {
+			const rect = canvas.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+			const y = e.clientY - rect.top;
 			if (hasPointer) {
-				mvx = e.clientX - mx;
-				mvy = e.clientY - my;
+				mvx = x - mx;
+				mvy = y - my;
 			}
 			hasPointer = true;
-			mx = e.clientX;
-			my = e.clientY;
+			mx = x;
+			my = y;
 		}, { passive: true });
 
 		window.addEventListener('pointerleave', () => {

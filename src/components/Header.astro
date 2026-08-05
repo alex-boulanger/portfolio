@@ -30,31 +30,30 @@ const frPath = `/fr${path === '/' ? '' : path}`;
 </header>
 
 <style>
+	/* The identifier plate: it names the instrument, it is not the headline.
+	   The plate below is what the visitor is meant to look at, so this holds at
+	   label scale and lets the field carry the viewport. */
 	header {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		z-index: 2;
 		display: flex;
-		align-items: center;
+		align-items: baseline;
 		justify-content: space-between;
-		padding: 1.5rem 1.75rem;
-		font-size: 0.75rem;
-		letter-spacing: 0.08em;
+		gap: 1.5rem;
+		padding: 0 0.85rem 0.9rem;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
 	}
 
 	nav {
 		display: flex;
-		gap: 1.5rem;
+		gap: 1.25rem;
 	}
 
-	@media (max-width: 600px) {
+	@media (max-width: 520px) {
 		header {
-			padding: 1.1rem 1.1rem;
+			padding: 0 0.65rem 0.75rem;
 		}
 		nav {
-			gap: 1.1rem;
+			gap: 1rem;
 		}
 	}
 </style>

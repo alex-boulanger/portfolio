@@ -1,0 +1,211 @@
+---
+// The instrument band. Every cell reads a real value off `window.__field` or
+// off the browser itself — grid dimensions, mean density, particle count, the
+// permutation seed, Brussels local time. Nothing here is authored, and nothing
+// here is a claim about Alex; inventing a metric would be the one way this
+// structure could lie.
+//
+// Marked aria-hidden: it measures a decorative canvas, and a density figure
+// ticking five times a second is noise in a screen reader, not information.
+const locale = Astro.currentLocale ?? 'en';
+
+const labels =
+	locale === 'fr'
+		? { grid: 'champ', dens: 'dens', trace: 'traces', seed: 'graine', time: 'bru' }
+		: { grid: 'field', dens: 'dens', trace: 'trace', seed: 'seed', time: 'bru' };
+---
+
+<div class="band" aria-hidden="true">
+	<span class="cell"><i>{labels.grid}</i><b data-cell="grid">····×··</b></span>
+	<span class="cell"><i>{labels.dens}</i><b data-cell="dens">·····</b></span>
+	<span class="cell trace"><i>{labels.trace}</i><b data-cell="trace">····</b></span>
+	<span class="cell seed"><i>{labels.seed}</i><b data-cell="seed">····</b></span>
+	<span class="cell time"><i>{labels.time}</i><b data-cell="time">··:··:··</b></span>
+</div>
+
+<style>
+	/* Flush against the plate below it: band and plate are one mounted
+	   instrument, not two stacked panels. */
+	.band {
+		display: flex;
+		align-items: baseline;
+		gap: clamp(0.9rem, 2.6vw, 2.5rem);
+		padding: 0.55rem 0.85rem;
+		border: 1px solid var(--rule);
+		border-bottom: none;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		text-transform: uppercase;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
+	.cell {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.5em;
+		min-width: 0;
+	}
+
+	/* Label and value differ by tone, never by size — at this scale a second
+	   size step would just look like a mistake. Both clear 4.5:1. */
+	i {
+		font-style: normal;
+		color: var(--dim);
+	}
+
+	b {
+		font-weight: 400;
+		color: var(--fg);
+		/* Values change every tick; `pre` holds the glyph footprint so the
+		   row never reflows as digits swap. */
+		white-space: pre;
+	}
+
+	/* Narrow screens keep the three cells that describe the field and drop the
+	   two that merely identify it. */
+	@media (max-width: 720px) {
+		.cell.seed {
+			display: none;
+		}
+	}
+
+	@media (max-width: 520px) {
+		.cell.trace {
+			display: none;
+		}
+		.band {
+			gap: 1.1rem;
+			padding: 0.5rem 0.65rem;
+			letter-spacing: 0.1em;
+		}
+	}
+</style>
+
+<script>
+	// Part of the power-on: the cells decode out of the same glyph alphabet the
+	// field draws with, then hand over to live values. One sequence, not a
+	// second effect — the plate draws, the cells resolve, the log lands.
+	if (!(window as any).__readouts) {
+		(window as any).__readouts = true;
+
+		const CHARS = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'.';
+		const DECODE = 620; // ms for a cell to resolve
+		const STAGGER = 70; // ms between cells
+		const TICK = 45;
+
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const time = new Intl.DateTimeFormat('en-GB', {
+			timeZone: 'Europe/Brussels',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+		});
+
+		let timer = 0;
+
+		function read(key: string) {
+			const f = (window as any).__field;
+			switch (key) {
+				case 'grid':
+					return f ? `${f.cols}×${f.rows}` : '—';
+				case 'dens':
+					return f ? f.density.toFixed(3) : '—';
+				case 'trace':
+					return f ? String(f.particles) : '—';
+				case 'seed':
+					return f ? String(f.seed) : '—';
+				case 'time':
+					return time.format(new Date());
+				default:
+					return '—';
+			}
+		}
+
+		function cells() {
+			return Array.from(document.querySelectorAll<HTMLElement>('[data-cell]'));
+		}
+
+		function live() {
+			cells().forEach((el) => {
+				const key = el.dataset.cell;
+				if (key) el.textContent = read(key);
+			});
+		}
+
+		// Decode against the value the cell is about to hold, so the footprint
+		// it settles into is the footprint it churned at.
+		function decode(el: HTMLElement, target: string, delay: number) {
+			const start = performance.now() + delay;
+			let lastTick = -1;
+
+			const step = (now: number) => {
+				const elapsed = now - start;
+				if (elapsed < 0) {
+					requestAnimationFrame(step);
+					return;
+				}
+				const p = Math.min(1, elapsed / DECODE);
+				const tick = (elapsed / TICK) | 0;
+
+				if (tick !== lastTick) {
+					lastTick = tick;
+					let out = '';
+					for (let i = 0; i < target.length; i++) {
+						const ch = target[i];
+						if (ch === ' ') {
+							out += ' ';
+							continue;
+						}
+						const resolveAt = ((i + 1) / target.length) * 0.85;
+						out += p >= resolveAt ? ch : CHARS[(Math.random() * CHARS.length) | 0];
+					}
+					el.textContent = out;
+				}
+
+				if (p < 1) requestAnimationFrame(step);
+			};
+
+			requestAnimationFrame(step);
+		}
+
+		function boot() {
+			window.clearInterval(timer);
+
+			// The field publishes its grid on first resize; until then there is
+			// nothing true to show, so wait rather than print a placeholder.
+			const ready = () => Boolean((window as any).__field?.cols);
+
+			const begin = () => {
+				if (reduced.matches) {
+					live();
+				} else {
+					cells().forEach((el, i) => {
+						const key = el.dataset.cell;
+						if (key) decode(el, read(key), i * STAGGER);
+					});
+				}
+				// 5Hz: fast enough that the time cell never looks stuck, slow
+				// enough that it costs nothing next to the field's own loop.
+				timer = window.setInterval(live, 200);
+			};
+
+			if (ready()) {
+				begin();
+			} else {
+				let tries = 0;
+				const wait = window.setInterval(() => {
+					if (ready() || ++tries > 60) {
+						window.clearInterval(wait);
+						begin();
+					}
+				}, 50);
+			}
+		}
+
+		boot();
+		document.addEventListener('astro:page-load', boot);
+		document.addEventListener('astro:before-swap', () => window.clearInterval(timer));
+	}
+</script>

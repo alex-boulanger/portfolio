@@ -1,16 +1,18 @@
 ---
 title: alex boulanger
-description: Ingénieur full-stack. Six ans à construire des produits de bout en bout. Trail, musique, art génératif.
+description: Développeur full-stack. Six ans à construire des produits de bout en bout. Trail, musique, art génératif.
 links:
+  - label: cv
+    href: https://cv.alex-boulanger.dev
   - label: github
     href: https://github.com/alex-boulanger
   - label: linkedin
     href: https://linkedin.com/in/alex-boulanger
 ---
 
-Je suis Alex, ingénieur full-stack. Six ans à transformer des idées en produits que les gens utilisent vraiment.\
-Actuellement dans la [santé](https://cv.alex-boulanger.dev).
+Je suis Alex, développeur full-stack. Six ans à transformer des idées en produits que les gens utilisent vraiment.\
+Actuellement dans la [santé](https://cv.alex-boulanger.dev)
 
-En dehors du travail : le grand air, trail, musique et art génératif.
+En dehors du travail : vélo, trail, musique et art génératif
 
 Bientôt à Bruxelles.

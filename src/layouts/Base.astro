@@ -2,6 +2,9 @@
 import { ClientRouter } from 'astro:transitions';
 import Flowfield from '../components/Flowfield.astro';
 import Header from '../components/Header.astro';
+import Readouts from '../components/Readouts.astro';
+import Crosshair from '../components/Crosshair.astro';
+import Channels from '../components/Channels.astro';
 
 interface Props {
 	title?: string;
@@ -9,9 +12,12 @@ interface Props {
 	/** Set false on pages that exist in one locale only — otherwise they'd
 	 * advertise an hreflang alternate that 404s. */
 	localized?: boolean;
+	/** Destinations for the channel row. Authored per locale in the landing
+	 * entry, so the layout never holds copy of its own. */
+	links?: { label: string; href: string }[];
 }
 
-const { title = 'alex boulanger', description, localized = true } = Astro.props;
+const { title = 'alex boulanger', description, localized = true, links = [] } = Astro.props;
 const lang = Astro.currentLocale ?? 'en';
 
 const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
@@ -37,11 +43,39 @@ const alternates = localized
 		<ClientRouter />
 	</head>
 	<body>
-		<Flowfield />
-		<Header />
-		<main>
-			<slot />
-		</main>
+		<!--
+		THESIS: the field is not a backdrop, it is the phenomenon this page measures.
+		Refuses the centered-paragraph-on-full-bleed-canvas arrangement it replaced.
+		OWN-WORLD: #0a0a0a ground, system mono only, hairline rules at 15% white, the
+		ASCII density ramp as the only texture, #0000ff as the only hue, registration
+		ticks and readout cells. No second face, no second color, no icon set.
+		STORY: an evaluator meets an instrument measuring its own artifact, reads four
+		true lines, and leaves for the CV or GitHub.
+		FIRST VIEWPORT: identifier top-left and locale pair top-right; a hairline
+		readout band of genuinely computed values; a framed observation plate holding
+		the canvas, corner ticks and a live crosshair; the log entry bottom-left inside
+		the plate at the largest type on the page; the channel row beneath.
+		FORM: Station, candidate 6 of 6, seed 27ad4b60.
+		FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+		-->
+		<div class="chassis">
+			<Header />
+			<Readouts />
+			<div class="plate">
+				<Flowfield />
+				<div class="frame" aria-hidden="true">
+					<span class="tick tl"></span>
+					<span class="tick tr"></span>
+					<span class="tick bl"></span>
+					<span class="tick br"></span>
+				</div>
+				<Crosshair />
+				<main>
+					<slot />
+				</main>
+			</div>
+			<Channels links={links} />
+		</div>
 	</body>
 </html>
 
@@ -51,6 +85,18 @@ const alternates = localized
 		--fg: #ffffff;
 		/* The only color in the design; decoration only, never load-bearing. */
 		--glitch: #0000ff;
+		/* Chassis hairlines. One weight everywhere; the instrument has no
+		   heavier rule and no second tone. */
+		--rule: rgba(255, 255, 255, 0.15);
+		/* Readout type. Held above the 4.5:1 floor against --bg rather than
+		   dimmed to taste — these are labels, not decoration. */
+		--dim: rgba(255, 255, 255, 0.68);
+		/* Marks only: ticks and the crosshair. Never carries text. */
+		--mark: rgba(255, 255, 255, 0.55);
+		--gutter: clamp(0.9rem, 2.2vw, 2rem);
+		--inset: clamp(1.1rem, 2.4vw, 2.25rem);
+		/* Exponential ease-out; the chassis powers on, it does not bounce. */
+		--ease: cubic-bezier(0.16, 1, 0.3, 1);
 		color-scheme: dark;
 	}
 
@@ -75,13 +121,76 @@ const alternates = localized
 		-webkit-font-smoothing: antialiased;
 	}
 
-	main {
+	/* The instrument. Four bands: identifier, readout, plate, channels. The
+	   plate takes every pixel the other three leave. */
+	.chassis {
 		position: relative;
 		z-index: 1;
 		height: 100dvh;
+		padding: var(--gutter);
+		display: grid;
+		grid-template-rows: auto auto minmax(0, 1fr) auto;
+	}
+
+	/* The observation window. The readout band above sits flush against it, so
+	   band and plate read as one mounted object rather than two panels. */
+	.plate {
+		position: relative;
+		min-height: 0;
+		border: 1px solid var(--rule);
+		overflow: hidden;
+	}
+
+	.frame {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		z-index: 2;
+	}
+
+	/* Registration ticks: two hairlines each, set inside the corners so the
+	   plate reads as a measured window rather than a cropped image. */
+	.tick {
+		position: absolute;
+		width: 13px;
+		height: 13px;
+	}
+
+	.tick.tl {
+		top: 9px;
+		left: 9px;
+		border-top: 1px solid var(--mark);
+		border-left: 1px solid var(--mark);
+	}
+
+	.tick.tr {
+		top: 9px;
+		right: 9px;
+		border-top: 1px solid var(--mark);
+		border-right: 1px solid var(--mark);
+	}
+
+	.tick.bl {
+		bottom: 9px;
+		left: 9px;
+		border-bottom: 1px solid var(--mark);
+		border-left: 1px solid var(--mark);
+	}
+
+	.tick.br {
+		bottom: 9px;
+		right: 9px;
+		border-bottom: 1px solid var(--mark);
+		border-right: 1px solid var(--mark);
+	}
+
+	main {
+		position: absolute;
+		inset: 0;
+		z-index: 3;
 		display: flex;
-		align-items: center;
-		justify-content: center;
+		align-items: flex-end;
+		padding: var(--inset);
 		pointer-events: none;
 	}
 
@@ -131,6 +240,34 @@ const alternates = localized
 		color: var(--fg);
 		text-shadow: none;
 		outline: none;
+	}
+
+	/* The power-on. One orchestrated sequence staggered by band, not an
+	   entrance per component: the plate and its frame draw left to right, the
+	   readout cells decode, the log entry lands last. */
+	@keyframes chassis-draw {
+		from {
+			clip-path: inset(0 100% 0 0);
+		}
+		to {
+			clip-path: inset(0 0 0 0);
+		}
+	}
+
+	.plate {
+		animation: chassis-draw 0.8s var(--ease) both;
+	}
+
+	.frame {
+		animation: chassis-draw 0.8s var(--ease) 0.1s both;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.plate,
+		.frame {
+			animation: none;
+			clip-path: none;
+		}
 	}
 
 	/* The field is persisted and only the title changes, so a full-page

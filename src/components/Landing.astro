@@ -1,7 +1,10 @@
 ---
 import { render, type CollectionEntry } from 'astro:content';
-import GlitchLink from './GlitchLink.astro';
 
+// The log entry. It sits at the foot of the observation plate and is the
+// largest type on the page — the instrument frames the field, but the person
+// is what the evaluator came to read. Destinations moved to the channel row;
+// this block is prose only.
 interface Props {
 	entry: CollectionEntry<'landing'>;
 }
@@ -10,60 +13,56 @@ const { entry } = Astro.props;
 const { Content } = await render(entry);
 ---
 
-<section class="intro">
+<section class="log" data-field-shadow>
 	<Content />
-	<nav class="elsewhere">
-		{entry.data.links.map((l) => <GlitchLink href={l.href} label={l.label} />)}
-	</nav>
 </section>
 
 <style>
-	.intro {
-		max-width: 34rem;
-		padding: 0 1.75rem;
-		font-size: 0.8125rem;
-		line-height: 2;
-		letter-spacing: 0.04em;
+	.log {
+		max-width: 62ch;
+		font-size: clamp(0.8125rem, 0.55vw + 0.6rem, 1rem);
+		line-height: 1.95;
+		letter-spacing: 0.035em;
 		color: var(--fg);
-		/* Same scrim as the header type, so the copy holds against the field. */
-		text-shadow:
-			0 0 6px var(--bg),
-			0 0 14px var(--bg),
-			0 0 26px var(--bg);
-		animation: in 0.7s ease both;
+		/* The field already recedes here — the block is marked
+		   `data-field-shadow`, so the simulation dims itself underneath. This
+		   is only the short stop that covers the feathered edge; the heavy
+		   three-stop scrim the block used to need now reads as fog. */
+		text-shadow: 0 0 10px var(--bg);
+		/* Lands last in the power-on: plate draws, readouts decode, log arrives. */
+		animation: log-in 0.7s var(--ease) 0.75s both;
 	}
 
 	/* Markdown output isn't scoped by Astro, so paragraphs need :global. */
-	.intro :global(p) {
-		margin: 0 0 1.6em;
+	.log :global(p) {
+		margin: 0 0 1.5em;
 		text-wrap: pretty;
 	}
 
-	.elsewhere {
-		display: flex;
-		gap: 1.5rem;
-		margin-top: 2.4rem;
+	.log :global(p:last-child) {
+		margin-bottom: 0;
 	}
 
-	@keyframes in {
+	@keyframes log-in {
 		from {
 			opacity: 0;
+			transform: translateY(0.5rem);
 		}
 		to {
 			opacity: 1;
+			transform: none;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.intro {
+		.log {
 			animation: none;
 		}
 	}
 
 	@media (max-width: 600px) {
-		.intro {
-			padding: 0 1.1rem;
-			line-height: 1.9;
+		.log {
+			line-height: 1.85;
 		}
 	}
 </style>
