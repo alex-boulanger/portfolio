@@ -1,6 +1,6 @@
 ---
 title: alex boulanger
-description: Full-stack developer, Product Enthousiast
+description: Full-stack developer, Product Enthusiast
 links:
   - label: cv
     href: https://cv.alex-boulanger.dev
@@ -13,6 +13,4 @@ links:
 I'm Alex, a full-stack developer. Six years turning product ideas into things people actually use.\
 Currently in [healthcare](https://cv.alex-boulanger.dev)
 
-Outside work: bike, trail running, music, and generative art
-
-Brussels, soon.
+Lyon now, Brussels, soon

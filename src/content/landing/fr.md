@@ -13,6 +13,4 @@ links:
 Je suis Alex, développeur full-stack. Six ans à transformer des idées en produits que les gens utilisent vraiment.\
 Actuellement dans la [santé](https://cv.alex-boulanger.dev)
 
-En dehors du travail : vélo, trail, musique et art génératif
-
-Bientôt à Bruxelles.
+Actuellement à Lyon, bientôt à Bruxelles

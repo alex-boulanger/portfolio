@@ -2,9 +2,7 @@
 import { ClientRouter } from 'astro:transitions';
 import Field from '../components/Field.astro';
 import Header from '../components/Header.astro';
-import Readouts from '../components/Readouts.astro';
-import Crosshair from '../components/Crosshair.astro';
-import Channels from '../components/Channels.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 
 interface Props {
 	title?: string;
@@ -67,38 +65,17 @@ const alternates = localized
 	</head>
 	<body>
 		<!--
-		THESIS: the field is not a backdrop, it is the phenomenon this page measures.
-		Refuses the centered-paragraph-on-full-bleed-canvas arrangement it replaced.
-		OWN-WORLD: #0a0a0a ground, system mono only, hairline rules at 15% white, the
-		ASCII density ramp as the only texture, #0000ff as the only hue, registration
-		ticks and readout cells. No second face, no second color, no icon set.
-		STORY: an evaluator meets an instrument measuring its own artifact, reads four
-		true lines, and leaves for the CV or GitHub.
-		FIRST VIEWPORT: identifier top-left and locale pair top-right; a hairline
-		readout band of genuinely computed values, opening with the mode control; a
-		framed observation plate holding the canvas, corner ticks and a live crosshair;
-		the log entry bottom-left inside the plate at the largest type on the page; the
-		channel row beneath. Seed and renderer are both drawn fresh on each mount.
-		FORM: Station, candidate 6 of 6, seed 27ad4b60.
-		FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+		Simple field, short intro, useful links.
 		-->
-		<div class="chassis">
+		<div class="shell">
 			<Header />
-			<Readouts />
-			<div class="plate">
+			<div class="field-frame">
 				<Field />
-				<div class="frame" aria-hidden="true">
-					<span class="tick tl"></span>
-					<span class="tick tr"></span>
-					<span class="tick bl"></span>
-					<span class="tick br"></span>
-				</div>
-				<Crosshair />
 				<main>
 					<slot />
 				</main>
 			</div>
-			<Channels links={links} />
+			<SiteFooter links={links} />
 		</div>
 	</body>
 </html>
@@ -109,12 +86,8 @@ const alternates = localized
 		--fg: #ffffff;
 		--glitch: #0000ff;
 		--rule: rgba(255, 255, 255, 0.15);
-		--dim: rgba(255, 255, 255, 0.68);
-		/* Marks only: ticks and the crosshair. Never carries text. */
-		--mark: rgba(255, 255, 255, 0.55);
 		--gutter: clamp(0.9rem, 2.2vw, 2rem);
 		--inset: clamp(1.1rem, 2.4vw, 2.25rem);
-		/* Exponential ease-out; the chassis powers on, it does not bounce. */
 		--ease: cubic-bezier(0.16, 1, 0.3, 1);
 		color-scheme: dark;
 	}
@@ -140,73 +113,26 @@ const alternates = localized
 		-webkit-font-smoothing: antialiased;
 	}
 
-	/* The instrument. Four bands: identifier, readout, plate, channels. The
-	   plate takes every pixel the other three leave. */
-	.chassis {
+	.shell {
 		position: relative;
 		z-index: 1;
 		height: 100dvh;
 		padding: var(--gutter);
 		display: grid;
-		grid-template-rows: auto auto minmax(0, 1fr) auto;
+		grid-template-rows: auto minmax(0, 1fr) auto;
 	}
 
-	/* The observation window. The readout band above sits flush against it, so
-	   band and plate read as one mounted object rather than two panels. */
-	.plate {
+	.field-frame {
 		position: relative;
 		min-height: 0;
 		border: 1px solid var(--rule);
 		overflow: hidden;
 	}
 
-	.frame {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		z-index: 2;
-	}
-
-	/* Registration ticks: two hairlines each, set inside the corners so the
-	   plate reads as a measured window rather than a cropped image. */
-	.tick {
-		position: absolute;
-		width: 13px;
-		height: 13px;
-	}
-
-	.tick.tl {
-		top: 9px;
-		left: 9px;
-		border-top: 1px solid var(--mark);
-		border-left: 1px solid var(--mark);
-	}
-
-	.tick.tr {
-		top: 9px;
-		right: 9px;
-		border-top: 1px solid var(--mark);
-		border-right: 1px solid var(--mark);
-	}
-
-	.tick.bl {
-		bottom: 9px;
-		left: 9px;
-		border-bottom: 1px solid var(--mark);
-		border-left: 1px solid var(--mark);
-	}
-
-	.tick.br {
-		bottom: 9px;
-		right: 9px;
-		border-bottom: 1px solid var(--mark);
-		border-right: 1px solid var(--mark);
-	}
-
 	main {
 		position: absolute;
 		inset: 0;
-		z-index: 3;
+		z-index: 2;
 		display: flex;
 		align-items: flex-end;
 		padding: var(--inset);
@@ -223,8 +149,6 @@ const alternates = localized
 		color: var(--fg);
 	}
 
-	/* Every link on the site is a glitch link, however it was authored —
-	   <GlitchLink />, markdown, or hand-written <a>. One selector, no opt-in. */
 	a {
 		position: relative;
 		display: inline-block;
@@ -240,8 +164,6 @@ const alternates = localized
 			0 0 6px var(--bg),
 			0 0 14px var(--bg),
 			0 0 22px var(--bg);
-		/* Monospace + pre keeps scrambled glyphs on the exact same footprint,
-		   so nothing reflows mid-effect. */
 		white-space: pre;
 	}
 
@@ -251,8 +173,6 @@ const alternates = localized
 		text-underline-offset: 0.4em;
 	}
 
-	/* Hover inverts to a solid blue block; the scrim is dead weight over it.
-	   The only motion is the one-shot ASCII scramble driven from the script. */
 	a:hover,
 	a:focus-visible {
 		background: var(--glitch);
@@ -261,10 +181,7 @@ const alternates = localized
 		outline: none;
 	}
 
-	/* The power-on. One orchestrated sequence staggered by band, not an
-	   entrance per component: the plate and its frame draw left to right, the
-	   readout cells decode, the log entry lands last. */
-	@keyframes chassis-draw {
+	@keyframes field-draw {
 		from {
 			clip-path: inset(0 100% 0 0);
 		}
@@ -273,17 +190,12 @@ const alternates = localized
 		}
 	}
 
-	.plate {
-		animation: chassis-draw 0.8s var(--ease) both;
-	}
-
-	.frame {
-		animation: chassis-draw 0.8s var(--ease) 0.1s both;
+	.field-frame {
+		animation: field-draw 0.8s var(--ease) both;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.plate,
-		.frame {
+		.field-frame {
 			animation: none;
 			clip-path: none;
 		}
@@ -343,8 +255,6 @@ const alternates = localized
 				const p = Math.min(1, elapsed / DURATION);
 				const tick = (elapsed / TICK) | 0;
 
-				// Reroll random glyphs only every TICK ms; otherwise the text
-				// churns at 60fps and reads as noise rather than a decode.
 				if (tick !== lastTick) {
 					lastTick = tick;
 					let out = '';
@@ -354,7 +264,6 @@ const alternates = localized
 							out += ' ';
 							continue;
 						}
-						// Characters resolve left to right across the word.
 						const resolveAt = ((i + 1) / label.length) * 0.8;
 						out += p >= resolveAt ? ch : CHARS[(Math.random() * CHARS.length) | 0];
 					}
@@ -395,7 +304,6 @@ const alternates = localized
 		prepare();
 		document.addEventListener('astro:page-load', prepare);
 
-		// A navigation can swap the DOM mid-scramble; drop any stale handles.
 		document.addEventListener('astro:before-swap', () => {
 			running.forEach((id) => cancelAnimationFrame(id));
 			running.clear();

@@ -1,0 +1,68 @@
+---
+import GlitchLink from './GlitchLink.astro';
+
+interface Props {
+	links?: { label: string; href: string }[];
+}
+
+const { links = [] } = Astro.props;
+const locale = Astro.currentLocale ?? 'en';
+const visualLabel = locale === 'fr' ? 'Changer le visuel' : 'Change visual';
+const visualText = locale === 'fr' ? 'changer le visuel' : 'change visual';
+---
+
+<footer class="site-footer">
+	<nav>
+		{links.map((l) => <GlitchLink href={l.href} label={l.label} />)}
+	</nav>
+	<nav class="visual">
+		<GlitchLink href="#visual" label={visualText} ariaLabel={visualLabel} visualToggle />
+	</nav>
+</footer>
+
+<style>
+	.site-footer {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1.5rem;
+		padding-top: 0.9rem;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		text-transform: lowercase;
+	}
+
+	nav {
+		display: flex;
+		gap: clamp(1.1rem, 3vw, 2.25rem);
+	}
+
+	.visual {
+		margin-left: auto;
+	}
+
+	@media (max-width: 520px) {
+		.site-footer {
+			gap: 1rem;
+			padding-top: 0.75rem;
+		}
+
+		nav {
+			gap: 1rem;
+		}
+	}
+</style>
+
+<script>
+	if (!(window as any).__visualToggle) {
+		(window as any).__visualToggle = true;
+
+		document.addEventListener('click', (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			if (!target.closest('[data-visual-toggle]')) return;
+			event.preventDefault();
+			document.dispatchEvent(new Event('field:cycle'));
+		});
+	}
+</script>

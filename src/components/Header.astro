@@ -23,28 +23,26 @@ const frPath = `/fr${path === '/' ? '' : path}`;
 		{links.map((l) => <GlitchLink href={l.href} label={l.label} current={path === l.href} />)}
 	</nav> */
 	}
-	<nav class="lang">
+	<nav>
 		<GlitchLink href={path} label="en" current={locale === 'en'} />
 		<GlitchLink href={frPath} label="fr" current={locale === 'fr'} />
 	</nav>
 </header>
 
 <style>
-	/* The identifier plate: it names the instrument, it is not the headline.
-	   The plate below is what the visitor is meant to look at, so this holds at
-	   label scale and lets the field carry the viewport. */
 	header {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
 		gap: 1.5rem;
-		padding: 0 0.85rem 0.9rem;
+		padding: 0.9rem 0;
 		font-size: 0.6875rem;
 		letter-spacing: 0.13em;
 	}
 
 	nav {
 		display: flex;
+		align-items: baseline;
 		gap: 1.25rem;
 	}
 

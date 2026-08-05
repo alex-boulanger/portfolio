@@ -1,15 +1,6 @@
 ---
-// The observation subject. Four generative renderers share one cell grid, one
-// glyph ramp, one shade band, and one attenuation mask; only the field values
-// differ. The plate gives them an edge, which is what makes this an artifact
-// under measurement instead of wallpaper. Marked transition:persist so
-// navigation never restarts the simulation.
-//
-// The seed is drawn fresh on every mount, so SEED on the chassis reports a real
-// draw rather than a constant, and no two visits render the same field.
-//
-// Everything the chassis displays is published to `window.__field`. Nothing on
-// the chassis is authored; if it cannot be measured here, it does not appear.
+// Four renderers share one cell grid, glyph ramp, shade band, and attenuation
+// mask. Marked transition:persist so navigation never restarts the simulation.
 ---
 
 <canvas id="field" transition:persist aria-hidden="true"></canvas>
@@ -29,8 +20,8 @@
 <script>
 	// Guard: with ClientRouter this module evaluates once, but the flag also
 	// protects against a stray re-run leaving two loops on one canvas.
-	if (!(window as any).__fieldBooted) {
-		(window as any).__fieldBooted = true;
+	if (!(window as any).__asciiCanvasBooted) {
+		(window as any).__asciiCanvasBooted = true;
 		start();
 	}
 
@@ -101,11 +92,7 @@
 			SHADE_LUT[i] = Math.min(SHADES.length - 1, (Math.pow(i / 255, GAMMA) * SHADES.length) | 0);
 		}
 
-		// ---- seed -----------------------------------------------------------
-		// 16 bits, so the chassis can print it as four hex digits at a fixed
-		// width. Drawn once per mount and never regenerated: re-seeding mid-life
-		// would make the SEED cell a lie about the field currently running.
-		const SEED = 1 + ((Math.random() * 0xffff) | 0);
+		const seed = 1 + ((Math.random() * 0xffff) | 0);
 
 		function mulberry32(a: number) {
 			return function () {
@@ -116,7 +103,7 @@
 				return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 			};
 		}
-		const rand = mulberry32(SEED);
+		const rand = mulberry32(seed);
 
 		// ---- perlin ---------------------------------------------------------
 		const perm = new Uint8Array(512);
@@ -175,7 +162,6 @@
 
 		let mx = -1e5, my = -1e5, mvx = 0, mvy = 0, hasPointer = false;
 		let t = 0, last = 0, running = true;
-		let density = 0;
 
 		let shadowDepth = 0.75;
 		let feather = 150;
@@ -184,8 +170,7 @@
 
 		// ---- renderers ------------------------------------------------------
 		// Each owns its own state, allocates on resize, and writes `field`.
-		// They share the ramp, the shade band, the mask, and the pointer, so
-		// swapping one changes the phenomenon without changing the instrument.
+		// They share the ramp, shade band, mask, and pointer state.
 
 		// FLOW — particles advected by a perlin flow field, depositing trails
 		// that decay. Diffuse currents against genuine voids.
@@ -350,7 +335,7 @@
 							// the same glyph, so tone comes from how densely the
 							// marks fall rather than from varying them. Quantizing
 							// into the full ramp instead puts a different glyph in
-							// every cell, and the plate reads as speckle.
+							// every cell and reads as speckle.
 							fieldOut[base + c] = v > BAYER[brow + (c & 7)] ? INK : 0;
 						}
 					}
@@ -359,8 +344,7 @@
 		})();
 
 		// RASTER — a torus rasterized into the cell grid with a z-buffer, lit by
-		// a fixed lamp. The ASCII donut is the oldest piece of this medium's
-		// heritage, and it is the one mode that puts a solid object on the plate.
+		// a fixed lamp.
 		const raster = (() => {
 			const R1 = 1, R2 = 2, K2 = 5;
 			const THETA_STEP = 0.07, PHI_STEP = 0.02;
@@ -376,8 +360,7 @@
 				label: 'raster',
 				alloc() {
 					zbuf = new Float32Array(cols * rows);
-					// The 4.6 factor is the zoom: the torus should own the plate
-					// rather than sit in the middle of it.
+					// The 4.6 factor is the zoom.
 					K1x = (cols * K2 * 4.6) / (8 * (R1 + R2));
 					// Cells are taller than wide; scaling y by the cell aspect
 					// keeps the torus circular instead of stretched.
@@ -387,8 +370,7 @@
 					a += spinA * dt;
 					b += spinB * dt;
 
-					// The pointer tilts the object rather than deforming it: an
-					// instrument stage rotates, it does not melt.
+					// The pointer tilts the object rather than deforming it.
 					let ta = a, tb = b;
 					if (hasPointer && mx > -1e4) {
 						ta += (my / H - 0.5) * 1.4;
@@ -544,8 +526,8 @@
 
 		function resize() {
 			const rect = canvas.getBoundingClientRect();
-			// The plate can lay out at zero height for a frame during the
-			// power-on clip; sizing to that would throw away the whole grid.
+			// The canvas can lay out at zero height for a frame during route
+			// transitions; sizing to that would throw away the whole grid.
 			if (rect.width < 1 || rect.height < 1) return;
 
 			dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -562,8 +544,8 @@
 			cellW = ctx.measureText('M').width || fontSize * 0.6;
 			cellH = fontSize * 1.15;
 
-			// The log spans nearly the full width on a phone, so the well has to
-			// be tighter and shallower or it swallows the plate.
+			// The log spans nearly the full width on a phone, so the mask has to
+			// be tighter and shallower.
 			feather = W < 600 ? 64 : W < 1024 ? 110 : 150;
 			shadowDepth = W < 600 ? 0.68 : 0.75;
 
@@ -585,8 +567,6 @@
 			ctx.fillRect(0, 0, W, H);
 
 			const shadeCount = SHADES.length;
-			let sum = 0;
-
 			for (let r = 0; r < rows; r++) {
 				const base = r * cols;
 
@@ -599,10 +579,6 @@
 					let v = fieldOut[base + c];
 					if (v > 1) v = 1; else if (v < 0) v = 0;
 
-					// DENS reports the field, so it is read before the mask:
-					// the mask is how the field is displayed under type, not
-					// something the phenomenon is doing.
-					sum += v;
 					v *= attn[base + c];
 
 					const q = (v * 255) | 0;
@@ -635,7 +611,6 @@
 				}
 			}
 
-			density = cols && rows ? sum / (cols * rows) : 0;
 		}
 
 		function frame(now: number) {
@@ -680,40 +655,7 @@
 			fieldOut.fill(0);
 			renderer.alloc();
 			if (reduced.matches) settle();
-			document.dispatchEvent(new CustomEvent('field:mode', { detail: renderer.label }));
 		}
-
-		// ---- telemetry ------------------------------------------------------
-		// The chassis reads the instrument through this, never the other way
-		// round.
-		(window as any).__field = {
-			get seed() { return SEED; },
-			get seedHex() { return SEED.toString(16).toUpperCase().padStart(4, '0'); },
-			get cols() { return cols; },
-			get rows() { return rows; },
-			get density() { return density; },
-			get mode() { return renderer.label; },
-			get modes() { return RENDERERS.map((r) => r.label); },
-			cycle() { setMode(modeIndex + 1); },
-			/** Normalized field value at a plate-local point, 0..1. */
-			densityAt(x: number, y: number) {
-				const c = (x / cellW) | 0;
-				const r = (y / cellH) | 0;
-				if (c < 0 || c >= cols || r < 0 || r >= rows) return 0;
-				return Math.min(1, fieldOut[r * cols + c]);
-			},
-			/** Direction of steepest increase at a plate-local point, radians.
-			 *  The gradient is defined for every renderer, unlike a flow angle,
-			 *  so the probe reports the same quantity whatever is running. */
-			angleAt(x: number, y: number) {
-				const c = Math.min(cols - 2, Math.max(1, (x / cellW) | 0));
-				const r = Math.min(rows - 2, Math.max(1, (y / cellH) | 0));
-				if (cols < 3 || rows < 3) return 0;
-				const gx = fieldOut[r * cols + c + 1] - fieldOut[r * cols + c - 1];
-				const gy = fieldOut[(r + 1) * cols + c] - fieldOut[(r - 1) * cols + c];
-				return Math.atan2(gy, gx);
-			},
-		};
 
 		// ---- wiring ---------------------------------------------------------
 		let resizeQueued = false;
@@ -741,10 +683,9 @@
 			window.setTimeout(refreshShadow, 1600);
 		});
 
-		document.addEventListener('field:cycle', () => (window as any).__field.cycle());
+		document.addEventListener('field:cycle', () => setMode(modeIndex + 1));
 
-		// Pointer coordinates are plate-local: the field does not fill the
-		// viewport, so client coordinates would be offset by the chassis.
+		// Pointer coordinates are canvas-local, not viewport-local.
 		window.addEventListener('pointermove', (e) => {
 			const rect = canvas.getBoundingClientRect();
 			const x = e.clientX - rect.left;

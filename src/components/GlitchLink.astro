@@ -7,9 +7,11 @@ interface Props {
 	label: string;
 	/** Marks the link as the current page (adds aria-current + an underline). */
 	current?: boolean;
+	ariaLabel?: string;
+	visualToggle?: boolean;
 }
 
-const { href, label, current = false } = Astro.props;
+const { href, label, current = false, ariaLabel, visualToggle = false } = Astro.props;
 
 // Off-site links open in a new tab; rel guards the opener reference.
 const external = /^https?:\/\//.test(href);
@@ -21,5 +23,7 @@ const external = /^https?:\/\//.test(href);
 	data-label={label}
 	target={external ? '_blank' : undefined}
 	rel={external ? 'noopener noreferrer' : undefined}
-	aria-current={current ? 'page' : undefined}>{label}</a
+	aria-label={ariaLabel}
+	aria-current={current ? 'page' : undefined}
+	data-visual-toggle={visualToggle ? true : undefined}>{label}</a
 >
