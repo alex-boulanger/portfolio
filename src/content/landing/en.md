@@ -1,6 +1,6 @@
 ---
 title: alex boulanger
-description: Full-stack developer. Six years building products end to end. Trail running, music, generative art.
+description: Full-stack developer, Product Enthousiast
 links:
   - label: cv
     href: https://cv.alex-boulanger.dev

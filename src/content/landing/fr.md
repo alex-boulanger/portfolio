@@ -1,6 +1,6 @@
 ---
 title: alex boulanger
-description: Développeur full-stack. Six ans à construire des produits de bout en bout. Trail, musique, art génératif.
+description: Développeur full-stack
 links:
   - label: cv
     href: https://cv.alex-boulanger.dev
