@@ -54,15 +54,17 @@ const visualText = locale === 'fr' ? 'changer le visuel' : 'change visual';
 </style>
 
 <script>
-	if (!(window as any).__visualToggle) {
-		(window as any).__visualToggle = true;
+	const previous = (window as any).__visualToggleHandler;
+	if (previous) document.removeEventListener('click', previous);
 
-		document.addEventListener('click', (event) => {
-			const target = event.target;
-			if (!(target instanceof Element)) return;
-			if (!target.closest('[data-visual-toggle]')) return;
-			event.preventDefault();
-			document.dispatchEvent(new Event('field:cycle'));
-		});
-	}
+	const handler = (event: MouseEvent) => {
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		if (!target.closest('[data-visual-toggle]')) return;
+		event.preventDefault();
+		document.dispatchEvent(new Event('field:cycle'));
+	};
+
+	(window as any).__visualToggleHandler = handler;
+	document.addEventListener('click', handler);
 </script>
