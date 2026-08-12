@@ -36,6 +36,7 @@ An engineer whose site is itself the work sample. The interface is hand-built ra
 - Astro 7 static site, pnpm, Node ≥ 22.12. No UI framework or CSS framework in the dependency tree.
 - Astro i18n: English at the root, French prefixed at `/fr`. `en` is the default locale, unprefixed.
 - Landing copy lives in a content collection, one markdown file per locale (`src/content/landing/{en,fr}.md`); frontmatter holds title, description, and outbound links.
+- Personal project copy lives in `src/content/personal-projects/{en,fr}`. `/personal-projects` and `/fr/personal-projects` currently expose Framefield.
 - Client-side routing via `ClientRouter`; the background canvas is `transition:persist`ed so navigation never restarts it.
 - Dark scheme only — `color-scheme: dark` is declared, and there is no light mode.
 - The page does not scroll; `html, body { overflow: hidden }` and a `100dvh` main are load-bearing to the current single-viewport design.
@@ -44,13 +45,13 @@ An engineer whose site is itself the work sample. The interface is hand-built ra
 
 **Open decisions — do not resolve by invention:**
 
-- `/works` and `/lab` routes exist but are parked, unlinked, and empty (a `PageTitle` only). What either holds is undecided. The code comment proposing "works → cv subdomain, lab → internal experiments" is a stale note, not a decision.
-- Whether the site stays a single viewport or grows into a multi-page site is undecided.
+- `/works` still exists as an empty parked route and is not linked.
+- Whether the site grows beyond the landing page and `/personal-projects` is undecided.
 
 ## Brand Commitments
 
 - Name: **alex boulanger**, set lowercase throughout.
-- Bilingual EN/FR is permanent. Every surface ships in both locales; copy is authored twice, never machine-passed-through. (The existing `/works` and `/lab` pages set `localized={false}` and do not yet meet this bar.)
+- Bilingual EN/FR is permanent. Every surface ships in both locales; copy is authored twice, never machine-passed-through. (`/works` is parked and unlinked.)
 - Voice: first person, lowercase, plain, unembellished. Short declarative sentences. No marketing register, no superlatives, no exclamation.
 - Real domains in use: `alex-boulanger.dev` (this site), `cv.alex-boulanger.dev` (CV).
 
@@ -61,11 +62,12 @@ Real and available:
 - **cv.alex-boulanger.dev** — the CV. Currently the only substantive artifact this site can point to.
 - **GitHub** — github.com/alex-boulanger.
 - **LinkedIn** — linkedin.com/in/alex-boulanger.
+- **Framefield** — a shipped personal image glitcher at framefield.alex-boulanger.dev.
 - **The site's own flowfield and glitch-link work** — genuinely hand-built, and therefore usable as a demonstration of craft.
 
 Confirmed facts about Alex: full-stack developer, six years of experience building products end to end, currently working in healthcare. Outside work: bike, trail running, music, generative art. Moving to Brussels soon — not yet based there. Self-describes as "developer", not "engineer"; keep that wording in copy.
 
-Absences that future work must not fabricate: there are **no** case studies, project write-ups, client names, employer names, testimonials, metrics, press mentions, photographs, or shippable side projects. Do not invent them, and do not build a layout whose shape presumes them.
+Absences that future work must not fabricate: there are **no** case studies, client names, employer names, testimonials, metrics, press mentions, or photographs. Do not invent them, and do not build a layout whose shape presumes them.
 
 ## Product Principles
 

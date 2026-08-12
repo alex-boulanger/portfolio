@@ -1,0 +1,384 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+	locale: 'en' | 'fr';
+	projects: CollectionEntry<'personalProjects'>[];
+}
+
+const { locale, projects } = Astro.props;
+const firstMedia = projects[0]?.data.media[0];
+
+const copy = {
+	en: {
+		label: 'Personal projects',
+		open: 'Open',
+		media: 'media',
+		tech: 'Tech',
+	},
+	fr: {
+		label: 'Projets perso',
+		open: 'Voir',
+		media: 'medias',
+		tech: 'Tech',
+	},
+} as const;
+---
+
+<section class="personal-projects" data-field-shadow data-project-preview>
+	<div class="intro">
+		<p class="kicker">{copy[locale].label}</p>
+	</div>
+
+	<div class="projects">
+		{
+			projects.map((project, projectIndex) => (
+				<article class="project">
+					<div class="project-copy">
+						<p class="index">{String(projectIndex + 1).padStart(2, '0')}</p>
+						<h2>
+							<a href={project.data.href}>{project.data.title}</a>
+						</h2>
+						<p class="description">{project?.body?.trim()}</p>
+						<p class="tech">
+							<span>{copy[locale].tech}</span>
+							{project.data.tech.join(', ')}
+						</p>
+						<a class="project-link" href={project.data.href}>
+							{copy[locale].open}
+						</a>
+					</div>
+
+					<div class="media" aria-label={`${project.data.title} ${copy[locale].media}`}>
+						{project.data.media.map((item, mediaIndex) => (
+							<button
+								type="button"
+								data-preview-src={item.src}
+								data-preview-alt={item.alt}
+								aria-label={`${project.data.title} ${copy[locale].media} ${mediaIndex + 1}`}
+							>
+								<img
+									src={item.src}
+									alt={item.alt}
+									width="1080"
+									height={item.src.endsWith('/01.png') ? 1920 : 1350}
+									loading={mediaIndex === 0 ? 'eager' : 'lazy'}
+									decoding="async"
+								/>
+								<span>{String(mediaIndex + 1).padStart(2, '0')}</span>
+							</button>
+						))}
+					</div>
+				</article>
+			))
+		}
+	</div>
+
+	{
+		firstMedia && (
+			<figure class="floating-preview" aria-hidden="true">
+				<img src={firstMedia.src} alt="" data-preview-image />
+			</figure>
+		)
+	}
+</section>
+
+<style>
+	.personal-projects {
+		position: absolute;
+		inset: 0;
+		overflow: auto;
+		pointer-events: auto;
+		padding: var(--inset);
+		scrollbar-width: thin;
+		scrollbar-color: var(--rule) transparent;
+		text-shadow: 0 0 10px var(--bg);
+	}
+
+	.intro,
+	.project {
+		max-width: min(100%, 72rem);
+	}
+
+	.intro {
+		margin: 0 0 clamp(2.25rem, 7vh, 5rem);
+		font-size: clamp(0.8125rem, 0.55vw + 0.6rem, 1rem);
+		line-height: 1.85;
+		letter-spacing: 0.035em;
+		animation: projects-in 0.65s var(--ease) 0.25s both;
+	}
+
+	.intro p {
+		max-width: 56ch;
+		margin: 0;
+	}
+
+	.kicker {
+		margin-bottom: 0.85rem !important;
+		font-size: 0.6875rem;
+		letter-spacing: 0.28em;
+		text-transform: lowercase;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.projects {
+		display: grid;
+		gap: clamp(3rem, 8vh, 6rem);
+		padding-bottom: clamp(1rem, 8vh, 5rem);
+	}
+
+	.project {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(13rem, 24vw);
+		gap: clamp(1.4rem, 4vw, 4rem);
+		align-items: start;
+		animation: projects-in 0.65s var(--ease) 0.38s both;
+	}
+
+	.project-copy {
+		display: grid;
+		grid-template-columns: minmax(2rem, auto) minmax(0, 48rem);
+		column-gap: clamp(1rem, 2.5vw, 2rem);
+		row-gap: 1rem;
+		align-items: baseline;
+	}
+
+	.index {
+		margin: 0;
+		color: rgba(255, 255, 255, 0.55);
+		font-size: 0.6875rem;
+		letter-spacing: 0.18em;
+	}
+
+	h2 {
+		margin: 0;
+		font-size: clamp(1.45rem, 5vw, 4.8rem);
+		font-weight: 400;
+		line-height: 0.95;
+		letter-spacing: 0;
+	}
+
+	.description,
+	.tech,
+	.project-link {
+		grid-column: 2;
+	}
+
+	.description {
+		max-width: 52ch;
+		margin: 0;
+		font-size: clamp(0.875rem, 0.7vw + 0.64rem, 1.08rem);
+		line-height: 1.8;
+		letter-spacing: 0.035em;
+	}
+
+	.tech {
+		max-width: 58ch;
+		margin: 0;
+		color: rgba(255, 255, 255, 0.72);
+		font-size: 0.6875rem;
+		line-height: 1.8;
+		letter-spacing: 0.09em;
+		text-transform: none;
+	}
+
+	.tech span {
+		display: inline-block;
+		margin-right: 0.8rem;
+		color: rgba(255, 255, 255, 0.48);
+		letter-spacing: 0.18em;
+		text-transform: lowercase;
+	}
+
+	.project-link {
+		justify-self: start;
+		margin-top: 0.4rem;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		text-transform: lowercase;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.4em;
+	}
+
+	.media {
+		position: sticky;
+		top: var(--inset);
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.media button {
+		position: relative;
+		aspect-ratio: 4 / 5;
+		display: block;
+		width: 100%;
+		padding: 0;
+		margin: 0;
+		overflow: hidden;
+		border: 1px solid var(--rule);
+		background: var(--bg);
+		color: inherit;
+		font: inherit;
+		cursor: default;
+		white-space: normal;
+		text-shadow: none;
+	}
+
+	.media button:hover,
+	.media button:focus-visible {
+		border-color: var(--glitch);
+		outline: none;
+	}
+
+	.media img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+		filter: saturate(0.88) contrast(1.08);
+	}
+
+	.media span {
+		position: absolute;
+		left: 0.45rem;
+		bottom: 0.4rem;
+		font-size: 0.625rem;
+		letter-spacing: 0.14em;
+		color: var(--fg);
+		text-shadow:
+			0 0 6px var(--bg),
+			0 0 14px var(--bg);
+	}
+
+	.floating-preview {
+		position: fixed;
+		z-index: 5;
+		left: var(--preview-x, 64vw);
+		top: var(--preview-y, 42vh);
+		width: min(24vw, 19rem);
+		aspect-ratio: 4 / 5;
+		margin: 0;
+		border: 1px solid var(--rule);
+		background: var(--bg);
+		opacity: 0;
+		transform: translate3d(-50%, -50%, 0) rotate(var(--preview-rotate, 0deg));
+		pointer-events: none;
+		mix-blend-mode: normal;
+		transition:
+			opacity 0.16s ease,
+			transform 0.16s ease;
+	}
+
+	.personal-projects:has(.media button:hover) .floating-preview,
+	.personal-projects:has(.media button:focus-visible) .floating-preview {
+		opacity: 1;
+	}
+
+	.floating-preview img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+		filter: saturate(0.95) contrast(1.12);
+	}
+
+	@keyframes projects-in {
+		from {
+			opacity: 0;
+			transform: translateY(0.5rem);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.intro,
+		.project,
+		.floating-preview {
+			animation: none;
+			transition: none;
+		}
+	}
+
+	@media (max-width: 760px) {
+		.personal-projects {
+			padding: clamp(1rem, 5vw, 1.4rem);
+		}
+
+		.project,
+		.project-copy {
+			display: block;
+		}
+
+		.index,
+		.description,
+		.tech,
+		.project-link {
+			margin-top: 1rem;
+		}
+
+		h2 {
+			margin-top: 0.6rem;
+		}
+
+		.media {
+			position: static;
+			display: flex;
+			gap: 0.7rem;
+			margin-top: 1.6rem;
+			overflow-x: auto;
+			padding-bottom: 0.3rem;
+			scroll-snap-type: x mandatory;
+		}
+
+		.media button {
+			flex: 0 0 min(42vw, 10.5rem);
+			scroll-snap-align: start;
+		}
+
+		.floating-preview {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	const root = document.querySelector<HTMLElement>('[data-project-preview]');
+	if (root) {
+		const preview = root.querySelector<HTMLImageElement>('[data-preview-image]');
+		const controls = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-preview-src]'));
+
+		const setPreview = (control: HTMLButtonElement) => {
+			if (!preview) return;
+			const src = control.dataset.previewSrc;
+			if (src && preview.getAttribute('src') !== src) preview.src = src;
+		};
+
+		root.addEventListener(
+			'pointermove',
+			(event) => {
+				root.style.setProperty('--preview-x', `${event.clientX}px`);
+				root.style.setProperty('--preview-y', `${event.clientY}px`);
+			},
+			{ passive: true }
+		);
+
+		controls.forEach((control, index) => {
+			control.addEventListener('pointerenter', () => {
+				root.style.setProperty('--preview-rotate', `${index % 2 === 0 ? -1.5 : 1.5}deg`);
+				setPreview(control);
+			});
+			control.addEventListener('focus', () => {
+				const rect = control.getBoundingClientRect();
+				root.style.setProperty('--preview-x', `${rect.left + rect.width / 2}px`);
+				root.style.setProperty('--preview-y', `${rect.top + rect.height / 2}px`);
+				root.style.setProperty('--preview-rotate', `${index % 2 === 0 ? -1.5 : 1.5}deg`);
+				setPreview(control);
+			});
+		});
+	}
+</script>

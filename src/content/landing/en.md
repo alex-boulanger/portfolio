@@ -10,7 +10,7 @@ links:
     href: https://linkedin.com/in/alex-boulanger
 ---
 
-I'm Alex, a full-stack developer. Six years turning product ideas into things people actually use.\
+Hi, I'm Alex, a full-stack developer. I like turning product ideas into things people actually use.\
 Currently in [healthcare](https://cv.alex-boulanger.dev)
 
 Lyon now, Brussels, soon

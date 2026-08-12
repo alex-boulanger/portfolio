@@ -10,12 +10,16 @@ interface Props {
 	/** Set false on pages that exist in one locale only — otherwise they'd
 	 * advertise an hreflang alternate that 404s. */
 	localized?: boolean;
-	/** Destinations for the channel row. Authored per locale in the landing
-	 * entry, so the layout never holds copy of its own. */
 	links?: { label: string; href: string }[];
 }
 
-const { title = 'alex boulanger', description, localized = true, links = [] } = Astro.props;
+const defaultLinks = [
+	{ label: 'cv', href: 'https://cv.alex-boulanger.dev' },
+	{ label: 'github', href: 'https://github.com/alex-boulanger' },
+	{ label: 'linkedin', href: 'https://linkedin.com/in/alex-boulanger' },
+];
+
+const { title = 'alex boulanger', description, localized = true, links = defaultLinks } = Astro.props;
 const lang = Astro.currentLocale ?? 'en';
 const defaultDescription =
 	'Full-stack developer. Six years building products end to end. Generative interfaces, healthcare, and web craft.';
@@ -222,7 +226,7 @@ const alternates = localized
 
 		function prepare() {
 			document.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => {
-				if (!a.dataset.label) a.dataset.label = a.textContent ?? '';
+				if (!a.dataset.noScramble && !a.dataset.label) a.dataset.label = a.textContent ?? '';
 				if (!a.target && a.hostname && a.hostname !== location.hostname) {
 					a.target = '_blank';
 					a.rel = 'noopener noreferrer';
@@ -283,7 +287,7 @@ const alternates = localized
 		function enter(target: EventTarget | null) {
 			if (!(target instanceof Element)) return;
 			const link = target.closest<HTMLElement>('a');
-			if (!link || link === hovered) return;
+			if (!link || link.dataset.noScramble || link === hovered) return;
 			hovered = link;
 			if (!reduced.matches) scramble(link);
 		}

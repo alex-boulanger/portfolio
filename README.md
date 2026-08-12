@@ -5,7 +5,7 @@ professional front door: explain who Alex is, then send visitors to the CV,
 GitHub, or LinkedIn.
 
 The site is deliberately narrow: one handcrafted landing experience, English at
-the root, French at `/fr`, and a couple of parked routes for future work.
+the root, French at `/fr`, and a `/personal-projects` section for side projects.
 
 ## Stack
 
@@ -20,6 +20,7 @@ the root, French at `/fr`, and a couple of parked routes for future work.
 - Shared layout and UI live in `src/layouts` and `src/components`.
 - Landing copy lives in `src/content/landing/en.md` and
   `src/content/landing/fr.md`.
+- Personal project copy lives in `src/content/personal-projects/{en,fr}`.
 - Product and design intent live in `PRODUCT.md` and `DESIGN.md`.
 
 ## Commands

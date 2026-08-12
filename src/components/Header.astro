@@ -7,22 +7,20 @@ const locale = Astro.currentLocale ?? 'en';
 const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
 const frPath = `/fr${path === '/' ? '' : path}`;
 
-// Nav is parked until there's something behind it. `works` will point at the
-// cv subdomain once it's live; `lab` stays an internal route. The /works and
-// /lab pages still exist — uncomment these two blocks to bring them back.
-// const links = [
-// 	{ href: 'https://cv.alex-boulanger.dev', label: 'works' },
-// 	{ href: locale === 'fr' ? '/fr/lab' : '/lab', label: 'lab' },
-// ];
+const links = [
+	{
+		href: locale === 'fr' ? '/fr/personal-projects' : '/personal-projects',
+		label: 'projects',
+		current: path === '/personal-projects',
+	},
+];
 ---
 
 <header>
 	<GlitchLink href={locale === 'fr' ? '/fr' : '/'} label="alex boulanger" />
-	{
-		/* <nav>
-		{links.map((l) => <GlitchLink href={l.href} label={l.label} current={path === l.href} />)}
-	</nav> */
-	}
+	<nav>
+		{links.map((l) => <GlitchLink href={l.href} label={l.label} current={l.current} />)}
+	</nav>
 	<nav>
 		<GlitchLink href={path} label="en" current={locale === 'en'} />
 		<GlitchLink href={frPath} label="fr" current={locale === 'fr'} />
