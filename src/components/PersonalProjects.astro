@@ -11,62 +11,69 @@ const firstMedia = projects[0]?.data.media[0];
 
 const copy = {
 	en: {
-		label: 'Personal projects',
-		open: 'Open',
-		media: 'media',
-		tech: 'Tech',
+		open: 'Visit project',
+		media: 'Project image',
+		tech: 'Built with',
 	},
 	fr: {
-		label: 'Projets perso',
-		open: 'Voir',
-		media: 'medias',
-		tech: 'Tech',
+		open: 'Voir le projet',
+		media: 'Image du projet',
+		tech: 'Réalisé avec',
 	},
 } as const;
 ---
 
 <section class="personal-projects" data-field-shadow data-project-preview>
-	<div class="intro">
-		<p class="kicker">{copy[locale].label}</p>
-	</div>
-
 	<div class="projects">
 		{
 			projects.map((project, projectIndex) => (
-				<article class="project">
-					<div class="project-copy">
-						<p class="index">{String(projectIndex + 1).padStart(2, '0')}</p>
+				<article class="project" style={`--project-delay: ${0.18 + projectIndex * 0.1}s`}>
+					<div class="project-heading">
 						<h2>
-							<a href={project.data.href}>{project.data.title}</a>
+							<a href={project.data.href}>
+								{project.data.title.split(' ').map((word, wordIndex, words) => (
+									<>
+										<span>{word}</span>{wordIndex < words.length - 1 ? ' ' : null}
+									</>
+								))}
+							</a>
 						</h2>
+					</div>
+
+					<div class="project-details">
 						<p class="description">{project?.body?.trim()}</p>
-						<p class="tech">
-							<span>{copy[locale].tech}</span>
-							{project.data.tech.join(', ')}
-						</p>
+						{project.data.tech.length > 0 && (
+							<p class="tech">
+								<span>{copy[locale].tech}</span>
+								{project.data.tech.join(' · ')}
+							</p>
+						)}
 						<a class="project-link" href={project.data.href}>
-							{copy[locale].open}
+							{copy[locale].open} <span aria-hidden="true">↗</span>
 						</a>
 					</div>
 
 					<div class="media" aria-label={`${project.data.title} ${copy[locale].media}`}>
 						{project.data.media.map((item, mediaIndex) => (
-							<button
-								type="button"
-								data-preview-src={item.src}
-								data-preview-alt={item.alt}
-								aria-label={`${project.data.title} ${copy[locale].media} ${mediaIndex + 1}`}
-							>
-								<img
-									src={item.src}
-									alt={item.alt}
-									width="1080"
-									height={item.src.endsWith('/01.png') ? 1920 : 1350}
-									loading={mediaIndex === 0 ? 'eager' : 'lazy'}
-									decoding="async"
-								/>
-								<span>{String(mediaIndex + 1).padStart(2, '0')}</span>
-							</button>
+								<figure class="media-item">
+									<a
+										class="media-link"
+										href={project.data.href}
+										data-no-scramble
+										data-preview-src={item.src}
+										aria-label={`${copy[locale].open}: ${project.data.title}`}
+									>
+										<img
+											src={item.src}
+											alt={item.alt}
+											width={item.width}
+											height={item.height}
+											loading={projectIndex === 0 && mediaIndex === 0 ? 'eager' : 'lazy'}
+											decoding="async"
+											draggable="false"
+										/>
+									</a>
+								</figure>
 						))}
 					</div>
 				</article>
@@ -87,112 +94,100 @@ const copy = {
 	.personal-projects {
 		position: absolute;
 		inset: 0;
-		overflow: auto;
-		pointer-events: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
 		padding: var(--inset);
-		scrollbar-width: thin;
+		pointer-events: auto;
 		scrollbar-color: var(--rule) transparent;
+		scrollbar-width: thin;
 		text-shadow: 0 0 10px var(--bg);
 	}
 
-	.intro,
 	.project {
-		max-width: min(100%, 72rem);
+		width: min(100%, 86rem);
+		margin-inline: auto;
 	}
 
-	.intro {
-		margin: 0 0 clamp(2.25rem, 7vh, 5rem);
-		font-size: clamp(0.8125rem, 0.55vw + 0.6rem, 1rem);
-		line-height: 1.85;
-		letter-spacing: 0.035em;
-		animation: projects-in 0.65s var(--ease) 0.25s both;
-	}
-
-	.intro p {
-		max-width: 56ch;
-		margin: 0;
-	}
-
-	.kicker {
-		margin-bottom: 0.85rem !important;
+	.tech {
 		font-size: 0.6875rem;
-		letter-spacing: 0.28em;
+		font-weight: 400;
+		letter-spacing: 0.16em;
 		text-transform: lowercase;
-		color: rgba(255, 255, 255, 0.7);
 	}
 
 	.projects {
 		display: grid;
-		gap: clamp(3rem, 8vh, 6rem);
-		padding-bottom: clamp(1rem, 8vh, 5rem);
+		gap: clamp(3rem, 7vh, 5rem);
+		padding-top: clamp(1rem, 3vh, 2rem);
+		padding-bottom: clamp(2rem, 9vh, 6rem);
 	}
 
 	.project {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(13rem, 24vw);
-		gap: clamp(1.4rem, 4vw, 4rem);
-		align-items: start;
-		animation: projects-in 0.65s var(--ease) 0.38s both;
+		grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+		column-gap: clamp(2rem, 7vw, 7rem);
+		row-gap: clamp(1.5rem, 3vh, 2.5rem);
+		animation: projects-in 0.65s var(--ease) var(--project-delay) both;
 	}
 
-	.project-copy {
-		display: grid;
-		grid-template-columns: minmax(2rem, auto) minmax(0, 48rem);
-		column-gap: clamp(1rem, 2.5vw, 2rem);
-		row-gap: 1rem;
-		align-items: baseline;
+	.project + .project {
+		border-top: 1px solid var(--rule);
+		padding-top: clamp(2rem, 5vh, 3.5rem);
 	}
 
-	.index {
-		margin: 0;
-		color: rgba(255, 255, 255, 0.55);
-		font-size: 0.6875rem;
-		letter-spacing: 0.18em;
+	.project-heading {
+		min-width: 0;
 	}
 
 	h2 {
 		margin: 0;
-		font-size: clamp(1.45rem, 5vw, 4.8rem);
+		font-size: clamp(2rem, 6.7vw, 6.25rem);
 		font-weight: 400;
-		line-height: 0.95;
-		letter-spacing: 0;
+		line-height: 0.88;
+		letter-spacing: -0.055em;
+		text-wrap: balance;
 	}
 
-	.description,
-	.tech,
-	.project-link {
-		grid-column: 2;
+	h2 a {
+		display: block;
+		width: 100%;
+		white-space: normal;
+	}
+
+	.project-details {
+		display: flex;
+		min-height: 100%;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 1.35rem;
+		padding-top: 0.3rem;
 	}
 
 	.description {
-		max-width: 52ch;
+		max-width: 38ch;
 		margin: 0;
-		font-size: clamp(0.875rem, 0.7vw + 0.64rem, 1.08rem);
-		line-height: 1.8;
-		letter-spacing: 0.035em;
+		font-size: clamp(0.875rem, 0.55vw + 0.7rem, 1.08rem);
+		line-height: 1.7;
+		letter-spacing: 0.025em;
 	}
 
 	.tech {
-		max-width: 58ch;
+		max-width: 50ch;
 		margin: 0;
 		color: rgba(255, 255, 255, 0.72);
-		font-size: 0.6875rem;
 		line-height: 1.8;
-		letter-spacing: 0.09em;
 		text-transform: none;
 	}
 
 	.tech span {
-		display: inline-block;
-		margin-right: 0.8rem;
-		color: rgba(255, 255, 255, 0.48);
-		letter-spacing: 0.18em;
+		display: block;
+		margin-bottom: 0.2rem;
+		color: rgba(255, 255, 255, 0.42);
 		text-transform: lowercase;
 	}
 
 	.project-link {
-		justify-self: start;
-		margin-top: 0.4rem;
+		margin-top: auto;
 		font-size: 0.6875rem;
 		letter-spacing: 0.13em;
 		text-transform: lowercase;
@@ -201,55 +196,61 @@ const copy = {
 		text-underline-offset: 0.4em;
 	}
 
-	.media {
-		position: sticky;
-		top: var(--inset);
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.75rem;
+	.project-link span {
+		display: inline-block;
+		margin-left: 0.3em;
 	}
 
-	.media button {
-		position: relative;
-		aspect-ratio: 4 / 5;
+	.media {
+		grid-column: 1 / -1;
+		display: flex;
+		gap: clamp(0.65rem, 1.3vw, 1.15rem);
+		align-items: start;
+		justify-self: start;
+		width: fit-content;
+		max-width: 100%;
+	}
+
+	.media-item {
+		flex: 0 1 auto;
+		min-width: 0;
+		margin: 0;
+	}
+
+	.media-link {
 		display: block;
-		width: 100%;
+		width: fit-content;
+		max-width: 100%;
 		padding: 0;
 		margin: 0;
-		overflow: hidden;
-		border: 1px solid var(--rule);
 		background: var(--bg);
-		color: inherit;
-		font: inherit;
-		cursor: default;
-		white-space: normal;
+		outline: 1px solid oklch(1 0 0 / 0.1);
+		outline-offset: -1px;
 		text-shadow: none;
+		white-space: normal;
+		transition-property: opacity, outline-color;
+		transition-duration: 150ms;
+		transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.media button:hover,
-	.media button:focus-visible {
-		border-color: var(--glitch);
-		outline: none;
+	.media-link:hover,
+	.media-link:focus-visible {
+		background: var(--bg);
+		outline-color: var(--glitch);
+		opacity: 0.7;
 	}
 
-	.media img {
-		width: 100%;
-		height: 100%;
+	.media-link:active {
+		opacity: 0.72;
+	}
+
+	.media-link img {
 		display: block;
-		object-fit: cover;
-		filter: saturate(0.88) contrast(1.08);
-	}
-
-	.media span {
-		position: absolute;
-		left: 0.45rem;
-		bottom: 0.4rem;
-		font-size: 0.625rem;
-		letter-spacing: 0.14em;
-		color: var(--fg);
-		text-shadow:
-			0 0 6px var(--bg),
-			0 0 14px var(--bg);
+		width: auto;
+		max-width: 100%;
+		max-height: min(30vh, 18rem);
+		height: auto;
+		filter: saturate(0.92) contrast(1.04);
 	}
 
 	.floating-preview {
@@ -257,31 +258,32 @@ const copy = {
 		z-index: 5;
 		left: var(--preview-x, 64vw);
 		top: var(--preview-y, 42vh);
-		width: min(24vw, 19rem);
-		aspect-ratio: 4 / 5;
+		width: min(24vw, 20rem);
 		margin: 0;
-		border: 1px solid var(--rule);
 		background: var(--bg);
 		opacity: 0;
-		transform: translate3d(-50%, -50%, 0) rotate(var(--preview-rotate, 0deg));
+		filter: blur(4px);
+		outline: 1px solid oklch(1 0 0 / 0.1);
+		outline-offset: -1px;
+		transform: translate3d(-50%, -50%, 0) rotate(var(--preview-rotate, 0deg)) scale(0.96);
 		pointer-events: none;
-		mix-blend-mode: normal;
-		transition:
-			opacity 0.16s ease,
-			transform 0.16s ease;
+		transition-property: opacity, filter, transform;
+		transition-duration: 160ms;
+		transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.personal-projects:has(.media button:hover) .floating-preview,
-	.personal-projects:has(.media button:focus-visible) .floating-preview {
+	.personal-projects:has(.media-link:hover) .floating-preview,
+	.personal-projects:has(.media-link:focus-visible) .floating-preview {
 		opacity: 1;
+		filter: blur(0);
+		transform: translate3d(-50%, -50%, 0) rotate(var(--preview-rotate, 0deg)) scale(1);
 	}
 
 	.floating-preview img {
-		width: 100%;
-		height: 100%;
 		display: block;
-		object-fit: cover;
-		filter: saturate(0.95) contrast(1.12);
+		width: 100%;
+		height: auto;
+		filter: saturate(0.96) contrast(1.08);
 	}
 
 	@keyframes projects-in {
@@ -291,16 +293,7 @@ const copy = {
 		}
 		to {
 			opacity: 1;
-			transform: none;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.intro,
-		.project,
-		.floating-preview {
-			animation: none;
-			transition: none;
+			transform: translateY(0);
 		}
 	}
 
@@ -309,53 +302,108 @@ const copy = {
 			padding: clamp(1rem, 5vw, 1.4rem);
 		}
 
-		.project,
-		.project-copy {
+		.projects {
+			gap: 2.75rem;
+			padding-top: clamp(1.25rem, 5vh, 2rem);
+		}
+
+		.project {
 			display: block;
 		}
 
-		.index,
-		.description,
-		.tech,
-		.project-link {
-			margin-top: 1rem;
+		.project + .project {
+			padding-top: 2rem;
+		}
+
+		.project-heading {
+			min-width: 0;
 		}
 
 		h2 {
-			margin-top: 0.6rem;
+			font-size: clamp(2.35rem, 13vw, 4.75rem);
+			line-height: 0.92;
+			min-width: 0;
+		}
+
+		h2 span {
+			display: block;
+		}
+
+		.project-details {
+			min-height: 0;
+			margin: 1.25rem 0 1.5rem;
+		}
+
+		.project-link {
+			margin-top: 0.35rem;
 		}
 
 		.media {
-			position: static;
 			display: flex;
-			gap: 0.7rem;
-			margin-top: 1.6rem;
+			width: auto;
+			gap: 0.75rem;
 			overflow-x: auto;
-			padding-bottom: 0.3rem;
-			scroll-snap-type: x mandatory;
+			overflow-y: hidden;
+			margin-right: calc(-1 * clamp(1rem, 5vw, 1.4rem));
+			padding: 1px clamp(1rem, 5vw, 1.4rem) 0.5rem 1px;
+			overscroll-behavior-inline: contain;
+			scroll-snap-type: inline proximity;
+			touch-action: pan-x pan-y;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
 		}
 
-		.media button {
-			flex: 0 0 min(42vw, 10.5rem);
+		.media::-webkit-scrollbar {
+			display: none;
+		}
+
+		.media-item {
+			flex: 0 0 auto;
+			width: auto;
+			max-width: 82vw;
 			scroll-snap-align: start;
+		}
+
+		.media-link img {
+			width: auto;
+			max-width: none;
+			max-height: none;
+			height: clamp(12rem, 52vw, 18rem);
+			user-select: none;
+			-webkit-user-drag: none;
 		}
 
 		.floating-preview {
 			display: none;
 		}
 	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.project {
+			animation: none;
+		}
+
+		.media-link,
+		.floating-preview {
+			transition: none;
+		}
+	}
 </style>
 
 <script>
-	const root = document.querySelector<HTMLElement>('[data-project-preview]');
-	if (root) {
-		const preview = root.querySelector<HTMLImageElement>('[data-preview-image]');
-		const controls = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-preview-src]'));
+	function setupProjectPreview() {
+		const root = document.querySelector<HTMLElement>('[data-project-preview]');
+		if (!root || root.dataset.previewReady) return;
+		root.dataset.previewReady = 'true';
 
-		const setPreview = (control: HTMLButtonElement) => {
+		const preview = root.querySelector<HTMLImageElement>('[data-preview-image]');
+		const controls = Array.from(root.querySelectorAll<HTMLElement>('[data-preview-src]'));
+
+		const setPreview = (control: HTMLElement, index: number) => {
 			if (!preview) return;
 			const src = control.dataset.previewSrc;
 			if (src && preview.getAttribute('src') !== src) preview.src = src;
+			root.style.setProperty('--preview-rotate', `${index % 2 === 0 ? -1.5 : 1.5}deg`);
 		};
 
 		root.addEventListener(
@@ -368,17 +416,16 @@ const copy = {
 		);
 
 		controls.forEach((control, index) => {
-			control.addEventListener('pointerenter', () => {
-				root.style.setProperty('--preview-rotate', `${index % 2 === 0 ? -1.5 : 1.5}deg`);
-				setPreview(control);
-			});
+			control.addEventListener('pointerenter', () => setPreview(control, index));
 			control.addEventListener('focus', () => {
 				const rect = control.getBoundingClientRect();
 				root.style.setProperty('--preview-x', `${rect.left + rect.width / 2}px`);
 				root.style.setProperty('--preview-y', `${rect.top + rect.height / 2}px`);
-				root.style.setProperty('--preview-rotate', `${index % 2 === 0 ? -1.5 : 1.5}deg`);
-				setPreview(control);
+				setPreview(control, index);
 			});
 		});
 	}
+
+	setupProjectPreview();
+	document.addEventListener('astro:page-load', setupProjectPreview);
 </script>

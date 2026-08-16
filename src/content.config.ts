@@ -30,6 +30,8 @@ const personalProjects = defineCollection({
         kind: z.enum(["image", "video", "screenshot"]),
         src: z.string(),
         alt: z.string(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
       }),
     ),
   }),
