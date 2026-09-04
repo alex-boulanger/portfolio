@@ -4,8 +4,8 @@ Personal site for Alex Boulanger. It is a small Astro static site used as a
 professional front door: explain who Alex is, then send visitors to the CV,
 GitHub, or LinkedIn.
 
-The site is deliberately narrow: one handcrafted landing experience, English at
-the root, French at `/fr`, and a `/personal-projects` section for side projects.
+The site is deliberately narrow: one handcrafted landing experience, a
+`/personal-projects` section for side projects, and long-form work at `/writing`.
 
 ## Stack
 
@@ -18,9 +18,9 @@ the root, French at `/fr`, and a `/personal-projects` section for side projects.
 
 - Pages live in `src/pages`.
 - Shared layout and UI live in `src/layouts` and `src/components`.
-- Landing copy lives in `src/content/landing/en.md` and
-  `src/content/landing/fr.md`.
-- Personal project copy lives in `src/content/personal-projects/{en,fr}`.
+- Landing copy lives in `src/content/landing/home.md`.
+- Personal project copy lives in `src/content/personal-projects`.
+- Long-form articles live in `src/content/articles`.
 - Product and design intent live in `PRODUCT.md` and `DESIGN.md`.
 
 ## Commands

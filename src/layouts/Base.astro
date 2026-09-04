@@ -7,39 +7,43 @@ import SiteFooter from '../components/SiteFooter.astro';
 interface Props {
 	title?: string;
 	description?: string;
-	/** Set false on pages that exist in one locale only — otherwise they'd
-	 * advertise an hreflang alternate that 404s. */
-	localized?: boolean;
-	links?: { label: string; href: string }[];
+	mode?: 'default' | 'article';
+	previewImage?: { src: string; alt: string; width: number; height: number };
+	ogType?: 'website' | 'article';
+	publishedAt?: Date;
+	updatedAt?: Date;
 }
 
 const defaultLinks = [
 	{ label: 'cv', href: 'https://cv.alex-boulanger.dev' },
 	{ label: 'github', href: 'https://github.com/alex-boulanger' },
 	{ label: 'linkedin', href: 'https://linkedin.com/in/alex-boulanger' },
+	{ label: 'instagram', href: 'https://www.instagram.com/alex_la_brioche' },
 ];
 
-const { title = 'alex boulanger', description, localized = true, links = defaultLinks } = Astro.props;
-const lang = Astro.currentLocale ?? 'en';
+const {
+	title = 'alex boulanger',
+	description,
+	mode = 'default',
+	previewImage,
+	ogType = 'website',
+	publishedAt,
+	updatedAt,
+} = Astro.props;
 const defaultDescription =
 	'Full-stack developer. Six years building products end to end. Generative interfaces, healthcare, and web craft.';
 const metaDescription = description ?? defaultDescription;
 const site = Astro.site ?? new URL('https://alex-boulanger.dev');
 const canonicalUrl = new URL(Astro.url.pathname, site).toString();
-const previewImageUrl = new URL('/og.png', site).toString();
-const previewImageAlt = 'alex boulanger website preview';
+const previewImageUrl = new URL(previewImage?.src ?? '/og.png', site).toString();
+const previewImageAlt = previewImage?.alt ?? 'alex boulanger website preview';
+const previewImageWidth = previewImage?.width ?? 1200;
+const previewImageHeight = previewImage?.height ?? 630;
 
-const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
-const alternates = localized
-	? [
-			{ hreflang: 'en', href: new URL(path, site).toString() },
-			{ hreflang: 'fr', href: new URL(`/fr${path === '/' ? '' : path}`, site).toString() },
-		]
-	: [];
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang="en" data-page-mode={mode}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -49,17 +53,18 @@ const alternates = localized
 		<title>{title}</title>
 		<meta name="description" content={metaDescription} />
 		<link rel="canonical" href={canonicalUrl} />
-		{alternates.map((a) => <link rel="alternate" hreflang={a.hreflang} href={a.href} />)}
-		<meta property="og:type" content="website" />
+		<meta property="og:type" content={ogType} />
 		<meta property="og:site_name" content="alex boulanger" />
-		<meta property="og:locale" content={lang === 'fr' ? 'fr_FR' : 'en_US'} />
+		<meta property="og:locale" content="en_US" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={metaDescription} />
 		<meta property="og:url" content={canonicalUrl} />
 		<meta property="og:image" content={previewImageUrl} />
-		<meta property="og:image:width" content="1200" />
-		<meta property="og:image:height" content="630" />
+		<meta property="og:image:width" content={String(previewImageWidth)} />
+		<meta property="og:image:height" content={String(previewImageHeight)} />
 		<meta property="og:image:alt" content={previewImageAlt} />
+		{publishedAt && <meta property="article:published_time" content={publishedAt.toISOString()} />}
+		{updatedAt && <meta property="article:modified_time" content={updatedAt.toISOString()} />}
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={metaDescription} />
@@ -67,7 +72,7 @@ const alternates = localized
 		<meta name="twitter:image:alt" content={previewImageAlt} />
 		<ClientRouter />
 	</head>
-	<body>
+	<body data-page-mode={mode} data-field-static={mode === 'article' ? 'true' : undefined}>
 		<!--
 		Simple field, short intro, useful links.
 		-->
@@ -79,7 +84,7 @@ const alternates = localized
 					<slot />
 				</main>
 			</div>
-			<SiteFooter links={links} />
+			<SiteFooter links={defaultLinks} />
 		</div>
 	</body>
 </html>
@@ -128,6 +133,7 @@ const alternates = localized
 
 	.field-frame {
 		position: relative;
+		min-width: 0;
 		min-height: 0;
 		border: 1px solid var(--rule);
 		overflow: hidden;
@@ -144,6 +150,43 @@ const alternates = localized
 	}
 
 	main :is(a, button) {
+		pointer-events: auto;
+	}
+
+	html[data-page-mode='article'],
+	body[data-page-mode='article'] {
+		height: auto;
+		min-height: 100%;
+		overflow: auto;
+		overscroll-behavior: auto;
+	}
+
+	body[data-page-mode='article'] .shell {
+		height: auto;
+		min-height: 100dvh;
+		grid-template-rows: auto minmax(calc(100dvh - 8rem), auto) auto;
+	}
+
+	body[data-page-mode='article'] .field-frame {
+		overflow: clip;
+		animation: none;
+	}
+
+	body[data-page-mode='article'] #field {
+		position: sticky;
+		top: 0;
+		height: 100dvh;
+		margin-bottom: -100dvh;
+		opacity: 0.16;
+		filter: contrast(0.72);
+	}
+
+	body[data-page-mode='article'] main {
+		position: relative;
+		inset: auto;
+		display: block;
+		min-height: 100%;
+		padding: 0;
 		pointer-events: auto;
 	}
 
@@ -226,7 +269,7 @@ const alternates = localized
 
 		function prepare() {
 			document.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => {
-				if (!a.dataset.noScramble && !a.dataset.label) a.dataset.label = a.textContent ?? '';
+				if (!a.hasAttribute('data-no-scramble') && !a.dataset.label) a.dataset.label = a.textContent ?? '';
 				if (!a.target && a.hostname && a.hostname !== location.hostname) {
 					a.target = '_blank';
 					a.rel = 'noopener noreferrer';
@@ -287,7 +330,7 @@ const alternates = localized
 		function enter(target: EventTarget | null) {
 			if (!(target instanceof Element)) return;
 			const link = target.closest<HTMLElement>('a');
-			if (!link || link.dataset.noScramble || link === hovered) return;
+			if (!link || link.hasAttribute('data-no-scramble') || link === hovered) return;
 			hovered = link;
 			if (!reduced.matches) scramble(link);
 		}

@@ -1,0 +1,213 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Base from './Base.astro';
+
+interface Props {
+	entry: CollectionEntry<'articles'>;
+}
+
+const { entry } = Astro.props;
+const { title, description, publishedAt, updatedAt, hero } = entry.data;
+const date = publishedAt.toLocaleDateString('en-GB', {
+	day: '2-digit',
+	month: 'long',
+	year: 'numeric',
+});
+---
+
+<Base
+	title={`${title} — alex boulanger`}
+	description={description}
+	mode="article"
+	ogType="article"
+	previewImage={{ src: hero.src, alt: hero.alt, width: hero.width, height: hero.height }}
+	publishedAt={publishedAt}
+	updatedAt={updatedAt}
+>
+	<article class="article-page">
+		<header class="article-header" data-field-shadow>
+			<a class="back" href="/writing">← writing</a>
+			<p class="meta"><time datetime={publishedAt.toISOString()}>{date}</time></p>
+			<h1>{title}</h1>
+			<p class="dek">{description}</p>
+			<figure class="hero">
+				<img
+					src={hero.src}
+					srcset={hero.srcset}
+					sizes="(max-width: 900px) 100vw, 86rem"
+					alt={hero.alt}
+					width={hero.width}
+					height={hero.height}
+					fetchpriority="high"
+					decoding="async"
+				/>
+				<figcaption>{hero.caption}</figcaption>
+			</figure>
+		</header>
+
+		<div class="article-prose" data-field-shadow>
+			<slot />
+		</div>
+	</article>
+</Base>
+
+<style>
+	.article-page {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		padding: clamp(1.25rem, 4vw, 4rem) clamp(1rem, 4vw, 3rem) clamp(5rem, 10vw, 9rem);
+	}
+
+	.article-header {
+		width: min(100%, 86rem);
+		margin-inline: auto;
+	}
+
+	.back {
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		text-transform: lowercase;
+	}
+
+	.meta {
+		margin: clamp(3rem, 8vw, 7rem) 0 1.25rem;
+		color: rgb(255 255 255 / 0.5);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: lowercase;
+	}
+
+	h1 {
+		max-width: 12ch;
+		margin: 0;
+		font-size: clamp(3rem, 10vw, 9rem);
+		font-weight: 400;
+		line-height: 0.86;
+		letter-spacing: -0.065em;
+		text-wrap: balance;
+	}
+
+	.dek {
+		max-width: 58ch;
+		margin: clamp(1.5rem, 4vw, 3rem) 0 clamp(2rem, 5vw, 4rem);
+		font-size: clamp(1rem, 1.3vw, 1.35rem);
+		line-height: 1.65;
+		letter-spacing: 0.01em;
+	}
+
+	.hero { margin: 0; }
+	.hero img { display: block; width: 100%; height: auto; background: #e9e5da; }
+	figcaption {
+		margin-top: 0.65rem;
+		color: rgb(255 255 255 / 0.52);
+		font-size: 0.6875rem;
+		line-height: 1.5;
+	}
+
+	.article-prose {
+		width: min(100%, 70ch);
+		margin: 0 auto;
+		font-size: clamp(0.9rem, 0.6vw + 0.75rem, 1.08rem);
+		line-height: 1.9;
+		letter-spacing: 0.015em;
+		text-shadow: 0 0 12px var(--bg);
+	}
+
+	.article-prose :global(h2) {
+		margin: clamp(4rem, 10vw, 7rem) 0 1.25rem;
+		font-size: clamp(1.8rem, 4vw, 3.2rem);
+		font-weight: 400;
+		line-height: 1.05;
+		letter-spacing: -0.045em;
+		text-wrap: balance;
+	}
+
+	.article-prose :global(h3) {
+		margin: 3rem 0 1rem;
+		font-size: 1rem;
+		font-weight: 400;
+		letter-spacing: 0.08em;
+		text-transform: lowercase;
+	}
+
+	.article-prose :global(p),
+	.article-prose :global(ul),
+	.article-prose :global(ol) { margin: 0 0 1.6em; }
+	.article-prose :global(li + li) { margin-top: 0.6em; }
+	.article-prose :global(strong) { font-weight: 600; }
+
+	.article-prose :global(a) {
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.35em;
+		white-space: normal;
+	}
+
+	.article-prose :global(code) {
+		font: inherit;
+		color: rgb(255 255 255 / 0.76);
+	}
+
+	.article-prose :global(pre) {
+		margin: 2rem 0;
+		padding: 1.25rem;
+		overflow-x: auto;
+		border-block: 1px solid var(--rule);
+		background: rgb(10 10 10 / 0.78);
+		font-size: 0.82rem;
+		line-height: 1.7;
+		text-shadow: none;
+	}
+
+	.article-prose :global(blockquote) {
+		margin: 2.5rem 0;
+		padding: 1rem 1.25rem;
+		border-left: 2px solid var(--glitch);
+		background: rgb(0 0 255 / 0.08);
+		color: rgb(255 255 255 / 0.76);
+	}
+
+	.article-prose :global(blockquote p:last-child) { margin-bottom: 0; }
+
+	.article-prose :global(figure) {
+		width: min(92vw, 58rem);
+		margin: clamp(3rem, 8vw, 6rem) 50%;
+		transform: translateX(-50%);
+	}
+
+	.article-prose :global(.figure-pair) {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: clamp(0.75rem, 2vw, 1.5rem);
+	}
+
+	.article-prose :global(.figure-pair figcaption) { grid-column: 1 / -1; }
+
+	.article-prose :global(.circle-results) {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: clamp(0.5rem, 1.5vw, 1rem);
+	}
+
+	.article-prose :global(.circle-results figcaption) { grid-column: 1 / -1; }
+
+	.article-prose :global(figure img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		background: #e9e5da;
+	}
+
+	.article-prose :global(figcaption) { margin-top: 0.75rem; }
+	.article-prose :global(hr) { margin: 5rem 0; border: 0; border-top: 1px solid var(--rule); }
+
+	@media (max-width: 620px) {
+		.article-page { padding-inline: 0; }
+		.article-header > :not(.hero), .article-prose { padding-inline: 1rem; }
+		.article-prose :global(figure) { width: 100vw; }
+		.article-prose :global(.figure-pair),
+		.article-prose :global(.circle-results) { grid-template-columns: 1fr; }
+		.article-prose :global(figure figcaption) { padding-inline: 1rem; }
+	}
+</style>

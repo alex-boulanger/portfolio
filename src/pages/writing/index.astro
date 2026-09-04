@@ -1,0 +1,93 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+const articles = (await getCollection('articles', ({ data }) => !data.draft)).sort(
+	(a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf(),
+);
+---
+
+<Base
+	title="writing — alex boulanger"
+	description="Notes on generative systems, physical computing, and web craft by Alex Boulanger."
+	mode="article"
+>
+	<section class="writing-index" data-field-shadow>
+		<header>
+			<h1>Notes from things I'm making...</h1>
+		</header>
+
+		<div class="articles">
+			{
+				articles.map((entry) => (
+					<article>
+						<a href={`/writing/${entry.id}`} data-no-scramble>
+							<img
+								src={entry.data.hero.src}
+								srcset={entry.data.hero.srcset}
+								sizes="(max-width: 900px) 100vw, 70vw"
+								alt={entry.data.hero.alt}
+								width={entry.data.hero.width}
+								height={entry.data.hero.height}
+							/>
+							<div class="article-copy">
+								<p class="meta">
+									<time datetime={entry.data.publishedAt.toISOString()}>
+										{entry.data.publishedAt.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+									</time>
+								</p>
+								<h2>{entry.data.title}</h2>
+								<p>{entry.data.description}</p>
+								<span>read article →</span>
+							</div>
+						</a>
+					</article>
+				))
+			}
+		</div>
+	</section>
+</Base>
+
+<style>
+	.writing-index {
+		position: relative;
+		z-index: 1;
+		width: min(100%, 86rem);
+		margin-inline: auto;
+		padding: clamp(2rem, 6vw, 6rem) clamp(1rem, 4vw, 3rem) clamp(5rem, 10vw, 9rem);
+	}
+
+
+	h1 {
+		margin: 0;
+		font-size: clamp(2.5rem, 6vw, 4.5rem);
+		font-weight: 400;
+		text-wrap: balance;
+	}
+
+	.articles { margin-top: clamp(4rem, 10vw, 9rem); }
+	article { border-top: 1px solid var(--rule); padding-top: 1.5rem; }
+	article > a {
+		display: grid;
+		grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+		gap: clamp(1.5rem, 5vw, 5rem);
+		align-items: start;
+		width: 100%;
+		padding: 0;
+		margin: 0;
+		white-space: normal;
+		text-shadow: none;
+	}
+	article > a:hover, article > a:focus-visible { background: transparent; }
+	article > a:hover h2, article > a:focus-visible h2 { color: var(--glitch); }
+	img { display: block; width: 100%; height: auto; background: #e9e5da; }
+	.article-copy { padding-top: 0.2rem; }
+	h2 { margin: 0; font-size: clamp(2rem, 5vw, 4.5rem); font-weight: 400; line-height: 0.95; letter-spacing: -0.055em; transition: color 150ms; }
+	.article-copy > p:not(.meta) { margin: 1.25rem 0 2rem; color: rgb(255 255 255 / 0.72); line-height: 1.7; }
+	.article-copy span { font-size: 0.6875rem; letter-spacing: 0.13em; text-decoration: underline; text-underline-offset: 0.4em; }
+
+	@media (max-width: 760px) {
+		article > a { grid-template-columns: 1fr; }
+		.article-copy { order: -1; }
+	}
+</style>

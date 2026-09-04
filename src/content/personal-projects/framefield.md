@@ -1,6 +1,7 @@
 ---
 title: Framefield
 href: https://framefield.alex-boulanger.dev/
+cta: Visit project
 order: 2
 tech:
   - React

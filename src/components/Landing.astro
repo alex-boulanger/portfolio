@@ -38,6 +38,12 @@ const { Content } = await render(entry);
 		margin-bottom: 0;
 	}
 
+	.log :global(a) {
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.35em;
+	}
+
 	@keyframes log-in {
 		from {
 			opacity: 0;

@@ -43,22 +43,8 @@
 		const BG = '#0a0a0a';
 		const FG = '#c0c0c0';
 
-		// The band runs from just off the ground to FG. A narrow band of
-		// midtones is what makes a generative field read flat: every cell lands
-		// in the same tonal register no matter what the simulation is doing.
 		const SHADE_FLOOR = '#161616';
 
-		// Stop spacing. The two endpoints are fixed; what varies is where the ten
-		// stops between them fall. Evenly spaced stops spend as much of the ramp
-		// on the extremes as on the middle, and the extremes are where tone
-		// carries the least: faint haze wants to read as one dim mass and lit
-		// cores as one bright mass, not as a series of steps. An S-curve
-		// compresses both ends and spends the resolution across the middle,
-		// which is where structure actually lives.
-		//
-		// Not a perceptual correction — sRGB steps across this particular band
-		// are already close to even in L*. This is a compositional choice.
-		// 0 leaves the stops linear, 1 is a full smoothstep.
 		const SHADE_CURVE = 0.55;
 		const SHADES = buildShades(SHADE_FLOOR, FG, 12);
 
@@ -169,11 +155,6 @@
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 		// ---- renderers ------------------------------------------------------
-		// Each owns its own state, allocates on resize, and writes `field`.
-		// They share the ramp, shade band, mask, and pointer state.
-
-		// FLOW — particles advected by a perlin flow field, depositing trails
-		// that decay. Diffuse currents against genuine voids.
 		const flow = (() => {
 			const NOISE_SCALE = 0.0025, TIME_SCALE = 0.11, SPEED = 50;
 			const DECAY = 0.976, DEPOSIT = 0.16, AMBIENT = 0.055;
@@ -253,98 +234,6 @@
 			};
 		})();
 
-		// DITHER — domain-warped fbm quantized through an 8x8 Bayer matrix.
-		// The ordered threshold is the point: it produces the crosshatch of a
-		// printed halftone rather than the smooth gradient underneath it.
-		const dither = (() => {
-			// Canonical 8x8 ordered dither matrix, normalized in alloc().
-			const BAYER = new Float32Array([
-				0, 32, 8, 40, 2, 34, 10, 42,
-				48, 16, 56, 24, 50, 18, 58, 26,
-				12, 44, 4, 36, 14, 46, 6, 38,
-				60, 28, 52, 20, 62, 30, 54, 22,
-				3, 35, 11, 43, 1, 33, 9, 41,
-				51, 19, 59, 27, 49, 17, 57, 25,
-				15, 47, 7, 39, 13, 45, 5, 37,
-				63, 31, 55, 23, 61, 29, 53, 21,
-			].map((v) => (v + 0.5) / 64));
-
-			// Large features on purpose: at a tighter scale the bands end up
-			// smaller than the dither texture sitting on them, and the whole
-			// thing reads as hatching rather than as a printed gradient.
-			const SCALE = 0.0042;
-			// Four levels posterize hard enough that the ordered matrix reads as
-			// halftone texture at the band edges rather than as noise everywhere.
-			// The value every lit cell carries. One tone, so the mark is constant
-			// and only its density varies.
-			const INK = 0.82;
-			// Enough warp to keep the bands from running straight, not enough to
-			// dissolve the shapes they belong to.
-			const WARP = 13;
-
-			function fbm(x: number, y: number, z: number) {
-				let v = 0, amp = 0.5, f = 1;
-				for (let i = 0; i < 3; i++) {
-					v += noise(x * f, y * f, z * f) * amp;
-					amp *= 0.5;
-					f *= 2.07;
-				}
-				return v;
-			}
-
-			return {
-				label: 'dither',
-				alloc() {},
-				step() {
-					// The pointer warps the domain locally, so the halftone
-					// bends around the probe instead of ignoring it.
-					const hasP = hasPointer && mx > -1e4;
-					const PR = 220;
-
-					for (let r = 0; r < rows; r++) {
-						const y = r * cellH;
-						const base = r * cols;
-						const brow = (r & 7) << 3;
-
-						for (let c = 0; c < cols; c++) {
-							const x = c * cellW;
-
-							let wx = x, wy = y;
-							if (hasP) {
-								const dx = x - mx, dy = y - my;
-								const d = Math.sqrt(dx * dx + dy * dy);
-								if (d < PR) {
-									const k = (1 - d / PR) ** 2;
-									wx += (dx / (d || 1)) * k * WARP * 3;
-									wy += (dy / (d || 1)) * k * WARP * 3;
-								}
-							}
-
-							// Warp the sample point by a second noise field, so
-							// the bands fold instead of running straight.
-							const w = fbm(wx * SCALE * 0.5, wy * SCALE * 0.5, t * 0.022);
-							const g = fbm(wx * SCALE + w * WARP * SCALE, wy * SCALE, t * 0.03);
-
-							// Biased low on purpose: centring the fbm at 0.5 leaves no
-							// voids for the pattern to be read against.
-							let v = g * 1.3 + 0.21;
-							if (v < 0) v = 0; else if (v > 1) v = 1;
-
-							// One bit, which is what ordered dithering actually is.
-							// Every lit cell carries the same value and therefore
-							// the same glyph, so tone comes from how densely the
-							// marks fall rather than from varying them. Quantizing
-							// into the full ramp instead puts a different glyph in
-							// every cell and reads as speckle.
-							fieldOut[base + c] = v > BAYER[brow + (c & 7)] ? INK : 0;
-						}
-					}
-				},
-			};
-		})();
-
-		// RASTER — a torus rasterized into the cell grid with a z-buffer, lit by
-		// a fixed lamp.
 		const raster = (() => {
 			const R1 = 1, R2 = 2, K2 = 5;
 			const THETA_STEP = 0.07, PHI_STEP = 0.02;
@@ -418,9 +307,6 @@
 			};
 		})();
 
-		// MOIRE — two radial gratings beating against each other. One centre
-		// drifts on its own path, the other is the pointer when there is one,
-		// so the interference pattern is something the visitor steers.
 		const moire = (() => {
 			// Ring spacing must span many cells: at the old frequency a period
 			// fell inside a few cells and the interference aliased into noise
@@ -467,19 +353,14 @@
 			};
 		})();
 
-		const RENDERERS = [flow, dither, raster, moire];
+		const RENDERERS = [flow, raster, moire];
 
-		// Renderers write here; flow keeps its own decaying deposit in `field`
-		// and composites ambient on top, so the two buffers stay distinct.
 		let fieldOut = new Float32Array(0);
 
 		let modeIndex = (Math.random() * RENDERERS.length) | 0;
 		let renderer = RENDERERS[modeIndex];
 
 		// ---- shadow mask ----------------------------------------------------
-		// Elements that have to stay readable declare themselves with
-		// `data-field-shadow`; the field reads their boxes and steps its own
-		// density down underneath them. Geometry, not per-frame work.
 		function computeShadow() {
 			if (!attn.length) return;
 			attn.fill(1);
@@ -526,8 +407,7 @@
 
 		function resize() {
 			const rect = canvas.getBoundingClientRect();
-			// The canvas can lay out at zero height for a frame during route
-			// transitions; sizing to that would throw away the whole grid.
+
 			if (rect.width < 1 || rect.height < 1) return;
 
 			dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -594,9 +474,6 @@
 					if (c > maxC[si]) maxC[si] = c;
 				}
 
-				// One fillText per shade present in this row. Cells belonging to
-				// other shades become spaces, which cost nothing and keep every
-				// glyph on its exact column.
 				const y = r * cellH;
 				for (let s = 0; s < shadeCount; s++) {
 					const from = minC[s];
@@ -625,6 +502,22 @@
 			requestAnimationFrame(frame);
 		}
 
+		function shouldAnimate() {
+			return !reduced.matches && document.body.dataset.fieldStatic !== 'true' && !document.hidden;
+		}
+
+		function syncPlayback() {
+			if (!shouldAnimate()) {
+				running = false;
+				draw();
+				return;
+			}
+			if (running) return;
+			running = true;
+			last = 0;
+			requestAnimationFrame(frame);
+		}
+
 		function settle() {
 			// Flow needs history before it looks like anything; the others are
 			// stateless and resolve in one step.
@@ -638,7 +531,8 @@
 
 		function boot() {
 			resize();
-			if (reduced.matches) {
+			if (!shouldAnimate()) {
+				running = false;
 				settle();
 				return;
 			}
@@ -670,8 +564,6 @@
 		});
 		ro.observe(canvas);
 
-		// The log arrives on a short rise, and a navigation swaps which element
-		// sits over the field. Both move the boxes the mask is cut from.
 		function refreshShadow() {
 			computeShadow();
 			if (reduced.matches) draw();
@@ -680,6 +572,7 @@
 		window.setTimeout(refreshShadow, 1600);
 		document.addEventListener('astro:page-load', () => {
 			refreshShadow();
+			syncPlayback();
 			window.setTimeout(refreshShadow, 1600);
 		});
 
@@ -705,15 +598,13 @@
 			mvx = mvy = 0;
 		});
 
-		document.addEventListener('visibilitychange', () => {
-			if (reduced.matches) return;
-			if (document.hidden) {
+		document.addEventListener('visibilitychange', syncPlayback);
+		reduced.addEventListener('change', () => {
+			if (reduced.matches) {
 				running = false;
-			} else if (!running) {
-				running = true;
-				last = 0;
-				requestAnimationFrame(frame);
+				settle();
 			}
+			syncPlayback();
 		});
 
 		boot();

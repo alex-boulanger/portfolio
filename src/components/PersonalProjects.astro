@@ -2,24 +2,15 @@
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
-	locale: 'en' | 'fr';
 	projects: CollectionEntry<'personalProjects'>[];
 }
 
-const { locale, projects } = Astro.props;
+const { projects } = Astro.props;
 const firstMedia = projects[0]?.data.media[0];
 
 const copy = {
-	en: {
-		open: 'Visit project',
-		media: 'Project image',
-		tech: 'Built with',
-	},
-	fr: {
-		open: 'Voir le projet',
-		media: 'Image du projet',
-		tech: 'Réalisé avec',
-	},
+	media: 'Project image',
+	tech: 'Built with',
 } as const;
 ---
 
@@ -44,16 +35,17 @@ const copy = {
 						<p class="description">{project?.body?.trim()}</p>
 						{project.data.tech.length > 0 && (
 							<p class="tech">
-								<span>{copy[locale].tech}</span>
+								<span>{copy.tech}</span>
 								{project.data.tech.join(' · ')}
 							</p>
 						)}
 						<a class="project-link" href={project.data.href}>
-							{copy[locale].open} <span aria-hidden="true">↗</span>
+							{project.data.cta}
+							{/^https?:\/\//.test(project.data.href) && <span aria-hidden="true">↗</span>}
 						</a>
 					</div>
 
-					<div class="media" aria-label={`${project.data.title} ${copy[locale].media}`}>
+					<div class="media" aria-label={`${project.data.title} ${copy.media}`}>
 						{project.data.media.map((item, mediaIndex) => (
 								<figure class="media-item">
 									<a
@@ -61,7 +53,7 @@ const copy = {
 										href={project.data.href}
 										data-no-scramble
 										data-preview-src={item.src}
-										aria-label={`${copy[locale].open}: ${project.data.title}`}
+										aria-label={`${project.data.cta}: ${project.data.title}`}
 									>
 										<img
 											src={item.src}

@@ -1,6 +1,7 @@
 ---
 title: Serein Devices
 href: https://serein-devices.alex-boulanger.dev/
+cta: Visit project
 order: 1
 tech:
   - Ableton SDK

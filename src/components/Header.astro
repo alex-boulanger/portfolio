@@ -1,29 +1,26 @@
 ---
 import GlitchLink from './GlitchLink.astro';
 
-const locale = Astro.currentLocale ?? 'en';
-
-// The same page in the other locale, so switching never loses your place.
-const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
-const frPath = `/fr${path === '/' ? '' : path}`;
+const path = Astro.url.pathname;
 
 const links = [
 	{
-		href: locale === 'fr' ? '/fr/personal-projects' : '/personal-projects',
+		href: '/personal-projects',
 		label: 'projects',
 		current: path === '/personal-projects',
+	},
+	{
+		href: '/writing',
+		label: 'writing',
+		current: path === '/writing' || path.startsWith('/writing/'),
 	},
 ];
 ---
 
 <header>
-	<GlitchLink href={locale === 'fr' ? '/fr' : '/'} label="alex boulanger" />
-	<nav>
+	<GlitchLink href="/" label="alex boulanger" />
+	<nav class="primary-nav" aria-label="Primary">
 		{links.map((l) => <GlitchLink href={l.href} label={l.label} current={l.current} />)}
-	</nav>
-	<nav>
-		<GlitchLink href={path} label="en" current={locale === 'en'} />
-		<GlitchLink href={frPath} label="fr" current={locale === 'fr'} />
 	</nav>
 </header>
 
@@ -49,7 +46,7 @@ const links = [
 			padding: 0 0.65rem 0.75rem;
 		}
 		nav {
-			gap: 1rem;
+			gap: 0.75rem;
 		}
 	}
 </style>

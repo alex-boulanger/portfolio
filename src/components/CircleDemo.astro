@@ -1,0 +1,255 @@
+---
+const radius = 96;
+const samples = 3;
+const theta = 0;
+const points = Array.from({ length: samples }, (_, index) => {
+	const angle = (index / samples) * Math.PI * 2;
+	return { x: radius * Math.cos(angle), y: -radius * Math.sin(angle) };
+});
+const path = `${points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')} Z`;
+const active = { x: radius * Math.cos(theta), y: -radius * Math.sin(theta) };
+---
+
+<section class="circle-demo" data-circle-demo aria-label="Drawing a circle, one point at a time">
+	<div class="demo-grid">
+		<div class="plot">
+			<svg viewBox="-150 -150 300 300" role="img" aria-labelledby="circle-svg-title circle-svg-desc">
+				<title id="circle-svg-title">A circle approximated by connected points</title>
+				<desc id="circle-svg-desc">
+					A coordinate plane showing a sampled polygon, an active point, its radius, and its x and y projections.
+				</desc>
+				<circle class="guide" cx="0" cy="0" r={radius} />
+				<line class="axis" x1="-140" y1="0" x2="140" y2="0" />
+				<line class="axis" x1="0" y1="-140" x2="0" y2="140" />
+				<text class="axis-label" x="132" y="-6">x</text>
+				<text class="axis-label" x="6" y="-132">y</text>
+				<path class="sample-path" data-sample-path d={path} />
+				<g class="sample-points" data-sample-points>
+					{points.map((point) => <circle cx={point.x} cy={point.y} r="2.2" />)}
+				</g>
+				<line class="projection" data-projection-x x1={active.x} y1={active.y} x2={active.x} y2="0" />
+				<line class="projection" data-projection-y x1={active.x} y1={active.y} x2="0" y2={active.y} />
+				<line class="radius" data-radius-line x1="0" y1="0" x2={active.x} y2={active.y} />
+				<circle class="active-point" data-active-point cx={active.x} cy={active.y} r="4" />
+			</svg>
+		</div>
+
+		<div class="controls">
+			<label>
+				<span>angle θ <output data-angle-output>0.00π · 0.00 rad</output></span>
+				<input data-angle type="range" min="0" max="360" step="1" value="0" aria-label="Angle theta, from zero to two pi" />
+			</label>
+			<label>
+				<span>radius r <output data-radius-output>{radius}</output></span>
+				<input data-radius type="range" min="36" max="120" step="1" value={radius} />
+			</label>
+			<label>
+				<span>sample points n <output data-samples-output>{samples}</output></span>
+				<input data-samples type="range" min="3" max="64" step="1" value={samples} />
+			</label>
+
+			<div class="formula" aria-label="Circle coordinate formulas">
+				<code>x = cx + r cos(θ)</code>
+				<code>y = cy + r sin(θ)</code>
+			</div>
+
+			<dl class="values" aria-live="polite">
+				<div><dt>sin(θ)</dt><dd data-sin>0.000</dd></div>
+				<div><dt>cos(θ)</dt><dd data-cos>1.000</dd></div>
+				<div><dt>x</dt><dd data-x>96.00</dd></div>
+				<div><dt>y</dt><dd data-y>0.00</dd></div>
+			</dl>
+			<noscript><p>The diagram shows the default 0° point and a three-segment path.</p></noscript>
+		</div>
+	</div>
+</section>
+
+<style>
+	.circle-demo {
+		width: min(92vw, 58rem);
+		margin: clamp(2rem, 5vw, 3.5rem) 50%;
+		text-shadow: none;
+		transform: translateX(-50%);
+	}
+
+	.demo-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+		gap: clamp(1.5rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.plot {
+		min-width: 0;
+		background: #f2efe6;
+		color: #0a0a0a;
+		aspect-ratio: 1;
+	}
+
+	svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.axis,
+	.guide,
+	.projection,
+	.radius,
+	.sample-path {
+		vector-effect: non-scaling-stroke;
+		fill: none;
+	}
+
+	.axis { stroke: rgb(10 10 10 / 0.24); stroke-width: 1; }
+	.guide { stroke: rgb(10 10 10 / 0.14); stroke-width: 1; stroke-dasharray: 3 4; }
+	.sample-path { stroke: #0a0a0a; stroke-width: 1.4; }
+	.sample-points circle { fill: #0a0a0a; }
+	.projection { stroke: #0000ff; stroke-width: 1; stroke-dasharray: 3 3; }
+	.radius { stroke: #0000ff; stroke-width: 1.5; }
+	.active-point { fill: #0000ff; }
+	.axis-label { fill: rgb(10 10 10 / 0.56); font: 10px ui-monospace, monospace; }
+
+	.controls {
+		display: grid;
+		gap: 1.35rem;
+	}
+
+	label {
+		display: grid;
+		gap: 0.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+
+	label span {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	output { color: rgb(255 255 255 / 0.58); }
+
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--glitch);
+	}
+
+	input[type='range']:focus-visible {
+		outline: 1px solid var(--fg);
+		outline-offset: 4px;
+	}
+
+	.formula {
+		display: grid;
+		gap: 0.45rem;
+		padding-block: 1rem;
+		border-block: 1px solid var(--rule);
+	}
+
+	.formula code { font-size: clamp(0.75rem, 2vw, 0.9rem); }
+
+	.values {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0;
+		margin: 0;
+		font-size: 0.75rem;
+	}
+
+	.values div { padding: 0.65rem 0; border-bottom: 1px solid var(--rule); }
+	.values div:nth-child(odd) { padding-right: 0.75rem; }
+	.values div:nth-child(even) { padding-left: 0.75rem; border-left: 1px solid var(--rule); }
+	.values dt { color: rgb(255 255 255 / 0.48); }
+	.values dd { margin: 0.2rem 0 0; }
+
+	@media (max-width: 720px) {
+		.circle-demo { width: 100vw; }
+		.demo-grid { grid-template-columns: 1fr; }
+		.controls { padding-inline: 1rem; }
+	}
+</style>
+
+<script>
+	const SVG_NS = 'http://www.w3.org/2000/svg';
+
+	function setupCircleDemo(root: HTMLElement) {
+		if (root.dataset.ready) return;
+		root.dataset.ready = 'true';
+
+		const angle = root.querySelector<HTMLInputElement>('[data-angle]');
+		const radius = root.querySelector<HTMLInputElement>('[data-radius]');
+		const samples = root.querySelector<HTMLInputElement>('[data-samples]');
+		const path = root.querySelector<SVGPathElement>('[data-sample-path]');
+		const pointGroup = root.querySelector<SVGGElement>('[data-sample-points]');
+		const activePoint = root.querySelector<SVGCircleElement>('[data-active-point]');
+		const radiusLine = root.querySelector<SVGLineElement>('[data-radius-line]');
+		const projectionX = root.querySelector<SVGLineElement>('[data-projection-x]');
+		const projectionY = root.querySelector<SVGLineElement>('[data-projection-y]');
+		const guide = root.querySelector<SVGCircleElement>('.guide');
+		if (!angle || !radius || !samples || !path || !pointGroup || !activePoint || !radiusLine || !projectionX || !projectionY || !guide) return;
+
+		const output = (name: string) => root.querySelector<HTMLOutputElement | HTMLElement>(`[data-${name}]`);
+		const setLine = (line: SVGLineElement, x1: number, y1: number, x2: number, y2: number) => {
+			line.setAttribute('x1', String(x1));
+			line.setAttribute('y1', String(y1));
+			line.setAttribute('x2', String(x2));
+			line.setAttribute('y2', String(y2));
+		};
+
+		function update() {
+			const r = Number(radius?.value);
+			const count = Number(samples?.value);
+			const radians = (Number(angle?.value) / 360) * Math.PI * 2;
+			const rawCos = Math.cos(radians);
+			const rawSin = Math.sin(radians);
+			const cos = Math.abs(rawCos) < 1e-10 ? 0 : rawCos;
+			const sin = Math.abs(rawSin) < 1e-10 ? 0 : rawSin;
+			const x = r * cos;
+			const mathY = r * sin;
+			const svgY = -mathY;
+
+			const vertices = Array.from({ length: count }, (_, index) => {
+				const a = (index / count) * Math.PI * 2;
+				return { x: r * Math.cos(a), y: -r * Math.sin(a) };
+			});
+			path?.setAttribute('d', `${vertices.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')} Z`);
+			pointGroup?.replaceChildren(...vertices.map((point) => {
+				const node = document.createElementNS(SVG_NS, 'circle');
+				node.setAttribute('cx', String(point.x));
+				node.setAttribute('cy', String(point.y));
+				node.setAttribute('r', '2.2');
+				return node;
+			}));
+
+			guide?.setAttribute('r', String(r));
+			activePoint?.setAttribute('cx', String(x));
+			activePoint?.setAttribute('cy', String(svgY));
+			radiusLine && setLine(radiusLine, 0, 0, x, svgY);
+			projectionX && setLine(projectionX, x, svgY, x, 0);
+			projectionY && setLine(projectionY, x, svgY, 0, svgY);
+
+			const turns = radians / Math.PI;
+			output('angle-output')!.textContent = `${turns.toFixed(2)}π · ${radians.toFixed(2)} rad`;
+			output('radius-output')!.textContent = String(r);
+			output('samples-output')!.textContent = String(count);
+			output('sin')!.textContent = sin.toFixed(3);
+			output('cos')!.textContent = cos.toFixed(3);
+			output('x')!.textContent = x.toFixed(2);
+			output('y')!.textContent = mathY.toFixed(2);
+		}
+
+		angle.addEventListener('input', update);
+		radius.addEventListener('input', update);
+		samples.addEventListener('input', update);
+		update();
+	}
+
+	function setupCircleDemos() {
+		document.querySelectorAll<HTMLElement>('[data-circle-demo]').forEach(setupCircleDemo);
+	}
+
+	setupCircleDemos();
+	document.addEventListener('astro:page-load', setupCircleDemos);
+</script>

@@ -1,0 +1,195 @@
+---
+import { smoothNoise2D } from '../lib/smoothNoise';
+
+const radius = 96;
+const sampleCount = 256;
+const defaultAmount = 24;
+const defaultScale = 1.8;
+const seed = 1337;
+
+function makePath(amount: number, scale: number) {
+	const points = Array.from({ length: sampleCount }, (_, index) => {
+		const angle = (index / sampleCount) * Math.PI * 2;
+		const noisyRadius = radius + smoothNoise2D(Math.cos(angle) * scale, Math.sin(angle) * scale, seed) * amount;
+		return { x: noisyRadius * Math.cos(angle), y: -noisyRadius * Math.sin(angle) };
+	});
+
+	return `${points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')} Z`;
+}
+
+const path = makePath(defaultAmount, defaultScale);
+---
+
+<section class="noise-demo" data-noise-demo aria-label="Adding smooth noise to a circle">
+	<div class="demo-grid">
+		<div class="plot">
+			<svg viewBox="-160 -160 320 320" role="img" aria-labelledby="noise-circle-title noise-circle-desc">
+				<title id="noise-circle-title">A circle distorted with smooth noise</title>
+				<desc id="noise-circle-desc">
+					A perfect circle appears as a faint guide behind a closed, smoothly distorted path.
+				</desc>
+				<circle class="guide" cx="0" cy="0" r={radius} />
+				<path class="noise-path" data-noise-path d={path} />
+			</svg>
+		</div>
+
+		<div class="controls">
+			<label>
+				<span>noise amount <output data-amount-output>{defaultAmount}</output></span>
+				<input data-amount type="range" min="0" max="55" step="1" value={defaultAmount} />
+			</label>
+			<label>
+				<span>noise scale <output data-scale-output>{defaultScale.toFixed(1)}</output></span>
+				<input data-scale type="range" min="0.5" max="5" step="0.1" value={defaultScale} />
+			</label>
+
+			<div class="formula" aria-label="Noisy circle radius formula">
+				<code>r = radius + noise(x, y) × amount</code>
+			</div>
+			<noscript><p>The diagram shows the default circle with a noise amount of 24 and a noise scale of 1.8.</p></noscript>
+		</div>
+	</div>
+</section>
+
+<style>
+	.noise-demo {
+		width: min(92vw, 58rem);
+		margin: clamp(2rem, 5vw, 3.5rem) 50%;
+		text-shadow: none;
+		transform: translateX(-50%);
+	}
+
+	.demo-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+		gap: clamp(1.5rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.plot {
+		min-width: 0;
+		background: #f2efe6;
+		color: #0a0a0a;
+		aspect-ratio: 1;
+	}
+
+	svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.guide,
+	.noise-path {
+		vector-effect: non-scaling-stroke;
+		fill: none;
+	}
+
+	.guide {
+		stroke: rgb(10 10 10 / 0.16);
+		stroke-width: 1;
+		stroke-dasharray: 3 4;
+	}
+
+	.noise-path {
+		stroke: #0a0a0a;
+		stroke-width: 1.4;
+		stroke-linejoin: round;
+	}
+
+	.controls {
+		display: grid;
+		gap: 1.35rem;
+	}
+
+	label {
+		display: grid;
+		gap: 0.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+
+	label span {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	output { color: rgb(255 255 255 / 0.58); }
+
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--glitch);
+	}
+
+	input[type='range']:focus-visible {
+		outline: 1px solid var(--fg);
+		outline-offset: 4px;
+	}
+
+	.formula {
+		padding-block: 1rem;
+		border-block: 1px solid var(--rule);
+	}
+
+	.formula code { font-size: clamp(0.75rem, 2vw, 0.9rem); }
+
+	noscript p {
+		margin: 0;
+		color: rgb(255 255 255 / 0.58);
+		font-size: 0.75rem;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 720px) {
+		.noise-demo { width: 100vw; }
+		.demo-grid { grid-template-columns: 1fr; }
+		.controls { padding-inline: 1rem; }
+	}
+</style>
+
+<script>
+	import { smoothNoise2D } from '../lib/smoothNoise';
+
+	const RADIUS = 96;
+	const SAMPLE_COUNT = 256;
+	const SEED = 1337;
+
+	function setupNoiseDemo(root: HTMLElement) {
+		if (root.dataset.ready) return;
+		root.dataset.ready = 'true';
+
+		const amount = root.querySelector<HTMLInputElement>('[data-amount]');
+		const scale = root.querySelector<HTMLInputElement>('[data-scale]');
+		const path = root.querySelector<SVGPathElement>('[data-noise-path]');
+		const amountOutput = root.querySelector<HTMLOutputElement>('[data-amount-output]');
+		const scaleOutput = root.querySelector<HTMLOutputElement>('[data-scale-output]');
+		if (!amount || !scale || !path || !amountOutput || !scaleOutput) return;
+
+		function update() {
+			const noiseAmount = Number(amount?.value);
+			const noiseScale = Number(scale?.value);
+			const points = Array.from({ length: SAMPLE_COUNT }, (_, index) => {
+				const angle = (index / SAMPLE_COUNT) * Math.PI * 2;
+				const noise = smoothNoise2D(Math.cos(angle) * noiseScale, Math.sin(angle) * noiseScale, SEED);
+				const noisyRadius = RADIUS + noise * noiseAmount;
+				return { x: noisyRadius * Math.cos(angle), y: -noisyRadius * Math.sin(angle) };
+			});
+
+			path?.setAttribute('d', `${points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')} Z`);
+			amountOutput!.textContent = String(noiseAmount);
+			scaleOutput!.textContent = noiseScale.toFixed(1);
+		}
+
+		amount.addEventListener('input', update);
+		scale.addEventListener('input', update);
+		update();
+	}
+
+	function setupNoiseDemos() {
+		document.querySelectorAll<HTMLElement>('[data-noise-demo]').forEach(setupNoiseDemo);
+	}
+
+	setupNoiseDemos();
+	document.addEventListener('astro:page-load', setupNoiseDemos);
+</script>
