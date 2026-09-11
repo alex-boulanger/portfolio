@@ -41,6 +41,13 @@ const articles = defineCollection({
     publishedAt: z.coerce.date(),
     updatedAt: z.coerce.date().optional(),
     draft: z.boolean().default(false),
+    preview: z.object({
+      src: z.string(),
+      srcset: z.string().optional(),
+      alt: z.string(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    }).optional(),
     hero: z.object({
       src: z.string(),
       srcset: z.string().optional(),

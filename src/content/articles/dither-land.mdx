@@ -1,0 +1,91 @@
+---
+title: Ordering randomness
+description: "Three flat colours, a grid of 64 numbers, and a gradient"
+publishedAt: 2026-09-09
+draft: true
+hero:
+  src: /dither-land-assets/dither_land-1600.webp
+  srcset: /dither-land-assets/dither_land-960.webp 960w, /dither-land-assets/dither_land-1600.webp 1600w
+  alt: Ordering Randomness
+  caption: There is no gradient in this image. Zoom in and it's 3 flat colors
+  width: 1600
+  height: 1156
+---
+
+import ThresholdDemo from "../../components/ThresholdDemo.astro";
+import BayerDemo from "../../components/BayerDemo.astro";
+import LoopDemo from "../../components/LoopDemo.astro";
+
+## noise makes shapes, order makes light
+
+Last time I made [circles out of points](/the-joy-of-plotting) and messed them up with noise. Noise is great at _shapes_.
+
+This time I wanted something noise is spectacularly bad at: a **gradient**.
+
+The sketch fires a ray per cell into a pile of noise until it bumps into a mountain, and hands back one number per cell — how much light lands here, `0` to `1`.
+
+The palette is three flat colours. Background, ink, accent. Nothing in between, ever. Same deal as a pen plotter: it's down or it's up, ink or paper, one bit.
+
+So I have `0.63`, and a box containing **black** and **not black**. Softness has to come from _how I arrange the yes and the no_.
+
+## two bad answers
+
+Above `0.5`? Ink. Below? Nothing. Perfectly ordered, perfectly useless — a black blob, a white blob, no mountain in between.
+
+Fine, make the threshold **random**: a cell at `0.63` turns black 63% of the time. Statistically flawless, visually analog TV static. And my sketch animates, so every frame re-rolls the dice and the image boils like a bad soup.
+
+Order gives me blobs. Chaos gives me static.
+
+<ThresholdDemo />
+
+## randomness, standing in line
+
+A **Bayer matrix**: 64 numbers, `0` to `63`, arranged so any two neighbours sit as far apart in value as possible. It looks scattered. It's completely fixed.
+
+Every cell gets its own threshold from a repeating 8x8 tile:
+
+```ts
+const threshold = (bayer8[(row % 8) * 8 + (column % 8)] + 0.5) / 64;
+if (density[index] > threshold) {
+  context.fillRect(column * cell, row * cell, cell, cell);
+}
+```
+
+That's the whole trick. Neighbours hold wildly different thresholds, so they **never agree on when to flip**. Dark region, only the low numbers switch on, sprinkled apart. Brighter, more of them join in — in a fixed, fair order. Your eye, being lazy and lovely, averages the squares back into a tone that was never there.
+
+<BayerDemo />
+
+## the loop is another circle
+
+The sketch runs on an 8 second loop, and the sun goes round. Which is the exact trick from last time — angle in, position out — except the angle is now the clock:
+
+```ts
+const angle = playhead * tau;
+const light = { x: Math.cos(angle), y: 0.78, z: Math.sin(angle) };
+```
+
+`playhead` runs `0` to `1`, that's one full turn, and the light lands exactly where it started. No jump, no stitch. (Yes, I went with `tau` this time.)
+
+The clouds pull the same move. Drifting noise in a straight line never comes home, so instead I walk them around a tiny circle **inside the noise field** — same wobbly-circle trick as last time, drawn with time instead of geometry.
+
+And through all of it the dither holds still, because a cell's threshold depends on _where it is_, never on when you asked.
+
+<LoopDemo />
+
+## the accent needs its own queue
+
+Third colour: patches of pigment weathered into the rock, decided separately from the light. Reusing the same threshold made the accent clump into exactly the same dots as the shadows — two questions, one queue, everybody answering together.
+
+Same matrix, read at an offset:
+
+```ts
+const accent = (bayer8[((column + 3) % 8) * 8 + ((row + 5) % 8)] + 0.5) / 64;
+```
+
+Shift it, swap the axes, done.
+
+Noise for the mountains, 64 integers for the light, a circle for the clock. Nothing here is smooth — every pixel made a hard yes/no choice, and the softness is a hallucination happening in your eyeballs.
+
+Now go and make your computer lie to someone 💙
+
+More plotted and dithered nonsense on [Instagram](https://www.instagram.com/alex_la_brioche).

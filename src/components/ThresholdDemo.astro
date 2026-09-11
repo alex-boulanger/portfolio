@@ -1,0 +1,300 @@
+---
+const threshold = 0.5;
+---
+
+<section class="threshold-demo" data-threshold-demo aria-label="Two bad ways to turn one number into two colours">
+	<div class="demo-grid">
+		<div class="strips">
+			<div class="strip">
+				<span class="strip-label">the number I want</span>
+				<div class="tone" role="img" aria-label="A smooth gradient running from paper to ink."></div>
+			</div>
+			<div class="strip">
+				<span class="strip-label">hard threshold</span>
+				<div class="frame">
+					<canvas data-hard-canvas aria-label="The same gradient split into one pale blob and one dark blob."
+					></canvas>
+				</div>
+			</div>
+			<div class="strip">
+				<span class="strip-label">random threshold</span>
+				<div class="frame">
+					<canvas data-random-canvas aria-label="The same gradient turned into television static."></canvas>
+				</div>
+			</div>
+		</div>
+
+		<div class="controls">
+			<label>
+				<span>threshold <output data-threshold-output>{threshold.toFixed(2)}</output></span>
+				<input
+					data-threshold
+					type="range"
+					min="0.05"
+					max="0.95"
+					step="0.01"
+					value={threshold}
+					aria-label="Threshold for the hard cut, from 0.05 to 0.95"
+				/>
+			</label>
+
+			<button type="button" data-boil aria-pressed="true">stop the boil</button>
+
+			<div class="formula" aria-label="Threshold rule">
+				<code>ink = density &gt; threshold</code>
+			</div>
+
+			<p class="note">
+				One rule, two thresholds. A fixed one puts the edge in one place and nowhere else. A random one is right on
+				average and wrong everywhere, and it re-rolls every frame.
+			</p>
+
+			<noscript>
+				<p class="note">
+					With scripts off the two lower strips stay blank: they are drawn cell by cell. The top strip is the smooth
+					tone both of them are trying and failing to reproduce.
+				</p>
+			</noscript>
+		</div>
+	</div>
+</section>
+
+<style>
+	.threshold-demo {
+		width: min(92vw, 58rem);
+		margin: clamp(2rem, 5vw, 3.5rem) 50%;
+		text-shadow: none;
+		transform: translateX(-50%);
+	}
+
+	.demo-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+		gap: clamp(1.5rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.strips {
+		display: grid;
+		gap: clamp(0.75rem, 2vw, 1.25rem);
+		min-width: 0;
+	}
+
+	.strip-label {
+		display: block;
+		margin-bottom: 0.5rem;
+		color: rgb(255 255 255 / 0.48);
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+	}
+
+	.tone,
+	.frame {
+		height: clamp(4.5rem, 11vw, 6.5rem);
+		border: 1px solid var(--rule);
+		background: #c6c3bc;
+	}
+
+	.tone {
+		background: linear-gradient(90deg, #c6c3bc, #0a0a0a);
+	}
+
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.controls {
+		display: grid;
+		gap: 1.35rem;
+	}
+
+	label {
+		display: grid;
+		gap: 0.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+
+	label span {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	output { color: rgb(255 255 255 / 0.58); }
+
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--glitch);
+	}
+
+	input[type='range']:focus-visible {
+		outline: 1px solid var(--fg);
+		outline-offset: 4px;
+	}
+
+	button {
+		justify-self: start;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--rule);
+		background: none;
+		color: var(--fg);
+		font: inherit;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		cursor: pointer;
+	}
+
+	button:hover,
+	button:focus-visible {
+		background: var(--glitch);
+		outline: none;
+	}
+
+	.formula {
+		padding-block: 1rem;
+		border-block: 1px solid var(--rule);
+	}
+
+	.formula code { font-size: clamp(0.75rem, 2vw, 0.9rem); }
+
+	.note {
+		margin: 0;
+		color: rgb(255 255 255 / 0.58);
+		font-size: 0.75rem;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 720px) {
+		.threshold-demo { width: 100vw; }
+		.demo-grid { grid-template-columns: 1fr; }
+		.strips { padding-inline: 1rem; }
+		.controls { padding-inline: 1rem; }
+		/* Full-bleed on mobile runs the slider to the browser's edge-swipe
+		   zone, where a drag gets stolen before the thumb ever moves. */
+		input[type='range'] {
+			width: calc(100% - 1rem);
+			margin-inline: 0.5rem;
+			touch-action: pan-y;
+		}
+	}
+</style>
+
+<script>
+	import { createCellSurface, CELL_INK, CELL_PAPER, PAPER, INK } from '../lib/cellSurface';
+	import { demoDensity } from '../lib/demoField';
+
+	const CELL_SIZE = 7;
+
+	function setupThresholdDemo(root: HTMLElement) {
+		if (root.dataset.ready) return;
+		root.dataset.ready = 'true';
+
+		const hardCanvas = root.querySelector<HTMLCanvasElement>('[data-hard-canvas]');
+		const randomCanvas = root.querySelector<HTMLCanvasElement>('[data-random-canvas]');
+		const slider = root.querySelector<HTMLInputElement>('[data-threshold]');
+		const readout = root.querySelector<HTMLOutputElement>('[data-threshold-output]');
+		const boil = root.querySelector<HTMLButtonElement>('[data-boil]');
+		if (!hardCanvas || !randomCanvas || !slider || !readout || !boil) return;
+
+		const palette = [PAPER, INK];
+		const hard = createCellSurface(hardCanvas, CELL_SIZE, palette);
+		const random = createCellSurface(randomCanvas, CELL_SIZE, palette);
+		if (!hard || !random) return;
+
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let boiling = !reduced.matches;
+		let running = false;
+		let visible = true;
+
+		function fill(surface: typeof hard, thresholdAt: (index: number) => number) {
+			if (!surface) return;
+			const { cols, rows, cells } = surface;
+			for (let row = 0; row < rows; row++) {
+				const v = rows > 1 ? row / (rows - 1) : 0;
+				for (let column = 0; column < cols; column++) {
+					const u = cols > 1 ? column / (cols - 1) : 0;
+					const index = row * cols + column;
+					cells[index] = demoDensity(u, v) > thresholdAt(index) ? CELL_INK : CELL_PAPER;
+				}
+			}
+			surface.paint();
+		}
+
+		function drawHard() {
+			const cut = Number(slider?.value);
+			fill(hard, () => cut);
+		}
+
+		function drawRandom() {
+			fill(random, () => Math.random());
+		}
+
+		function frame() {
+			if (!running) return;
+			drawRandom();
+			requestAnimationFrame(frame);
+		}
+
+		function syncPlayback() {
+			const shouldRun = boiling && visible && !document.hidden;
+			if (shouldRun === running) return;
+			running = shouldRun;
+			if (running) requestAnimationFrame(frame);
+		}
+
+		function setBoiling(next: boolean) {
+			boiling = next;
+			boil!.setAttribute('aria-pressed', String(next));
+			boil!.textContent = next ? 'stop the boil' : 'start the boil';
+			syncPlayback();
+		}
+
+		function measure() {
+			hard?.measure();
+			random?.measure();
+			drawHard();
+			drawRandom();
+		}
+
+		slider.addEventListener('input', () => {
+			readout.textContent = Number(slider.value).toFixed(2);
+			drawHard();
+		});
+
+		boil.addEventListener('click', () => setBoiling(!boiling));
+
+		let queued = false;
+		const observer = new ResizeObserver(() => {
+			if (queued) return;
+			queued = true;
+			requestAnimationFrame(() => {
+				queued = false;
+				measure();
+			});
+		});
+		observer.observe(hardCanvas);
+		observer.observe(randomCanvas);
+
+		// A boiling canvas nobody is looking at is just a warm laptop.
+		new IntersectionObserver((entries) => {
+			visible = entries.some((entry) => entry.isIntersecting);
+			syncPlayback();
+		}).observe(root);
+
+		document.addEventListener('visibilitychange', syncPlayback);
+		reduced.addEventListener('change', () => setBoiling(!reduced.matches));
+
+		setBoiling(boiling);
+		measure();
+	}
+
+	function setupThresholdDemos() {
+		document.querySelectorAll<HTMLElement>('[data-threshold-demo]').forEach(setupThresholdDemo);
+	}
+
+	setupThresholdDemos();
+	document.addEventListener('astro:page-load', setupThresholdDemos);
+</script>

@@ -1,0 +1,285 @@
+---
+const playhead = 0.12;
+---
+
+<section class="loop-demo" data-loop-demo aria-label="One turn of the clock, one turn of the sun">
+	<div class="stage">
+		<canvas
+			data-scene-canvas
+			aria-label="A dithered sphere, its lit side and its cast shadow swinging round as the sun travels."
+		></canvas>
+	</div>
+
+	<div class="controls">
+		<label>
+			<span>playhead <output data-playhead-output>0.12 turn</output></span>
+			<input
+				data-playhead
+				type="range"
+				min="0"
+				max="1"
+				step="0.001"
+				value={playhead}
+				aria-label="Playhead, one full turn of the sun"
+			/>
+		</label>
+
+		<button type="button" data-play aria-pressed="true">pause</button>
+	</div>
+
+	<noscript><p class="note">With scripts off the sphere stays blank: it is drawn cell by cell, once per frame.</p></noscript>
+</section>
+
+<style>
+	.loop-demo {
+		width: min(92vw, 58rem);
+		margin: clamp(2rem, 5vw, 3.5rem) 50%;
+		text-shadow: none;
+		transform: translateX(-50%);
+	}
+
+	.stage {
+		border: 1px solid var(--rule);
+		background: #c6c3bc;
+		aspect-ratio: 16 / 9;
+	}
+
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.controls {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: clamp(1rem, 3vw, 2rem);
+		align-items: end;
+		margin-top: clamp(1.25rem, 3vw, 2rem);
+	}
+
+	label {
+		display: grid;
+		gap: 0.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+
+	label span {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	output { color: rgb(255 255 255 / 0.58); }
+
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--glitch);
+	}
+
+	input[type='range']:focus-visible {
+		outline: 1px solid var(--fg);
+		outline-offset: 4px;
+	}
+
+	button {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--rule);
+		background: none;
+		color: var(--fg);
+		font: inherit;
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+		cursor: pointer;
+	}
+
+	button:hover,
+	button:focus-visible {
+		background: var(--glitch);
+		outline: none;
+	}
+
+	.note {
+		margin: 1rem 0 0;
+		color: rgb(255 255 255 / 0.58);
+		font-size: 0.75rem;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 720px) {
+		.loop-demo { width: 100vw; }
+		.controls { padding-inline: 1rem; }
+		.note { padding-inline: 1rem; }
+		/* Full-bleed on mobile runs the slider to the browser's edge-swipe
+		   zone, where a drag gets stolen before the thumb ever moves. */
+		input[type='range'] {
+			width: calc(100% - 1rem);
+			margin-inline: 0.5rem;
+			touch-action: pan-y;
+		}
+	}
+</style>
+
+<script>
+	import { bayerThreshold } from '../lib/bayer';
+	import { createCellSurface, CELL_INK, CELL_PAPER, PAPER, INK } from '../lib/cellSurface';
+
+	const TAU = Math.PI * 2;
+	const LOOP_SECONDS = 8;
+	const CELL_SIZE = 5;
+
+	// The frame is two units wide, so x runs -1 to 1 and z follows the aspect.
+	// The sphere sits in the middle resting on the ground, which puts its
+	// centre one radius up.
+	const RADIUS = 0.34;
+	const ELEVATION = 0.78;
+	const AMBIENT = 0.16;
+	// How dark the ground gets on the side facing away from the sun.
+	const GROUND_RANGE = 0.4;
+
+	function setupLoopDemo(root: HTMLElement) {
+		if (root.dataset.ready) return;
+		root.dataset.ready = 'true';
+
+		const canvas = root.querySelector<HTMLCanvasElement>('[data-scene-canvas]');
+		const input = root.querySelector<HTMLInputElement>('[data-playhead]');
+		const output = root.querySelector<HTMLOutputElement>('[data-playhead-output]');
+		const playButton = root.querySelector<HTMLButtonElement>('[data-play]');
+		if (!canvas || !input || !output || !playButton) return;
+
+		const surface = createCellSurface(canvas, CELL_SIZE, [PAPER, INK]);
+		if (!surface) return;
+
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let playhead = Number(input.value);
+		let playing = !reduced.matches;
+		let running = false;
+		let visible = true;
+		let scrubbing = false;
+		let last = 0;
+
+		function render() {
+			const angle = playhead * TAU;
+			const { cols, rows, cells } = surface!;
+
+			let lx = Math.cos(angle);
+			let ly = ELEVATION;
+			let lz = Math.sin(angle);
+			const length = Math.hypot(lx, ly, lz);
+			lx /= length;
+			ly /= length;
+			lz /= length;
+
+			// The sun's heading with the elevation taken out, so the ground's
+			// tone can swing round with it.
+			const horizontal = Math.hypot(lx, lz) || 1;
+			const headingX = lx / horizontal;
+			const headingZ = lz / horizontal;
+
+			const radiusSquared = RADIUS * RADIUS;
+			const depth = rows / cols;
+
+			for (let row = 0; row < rows; row++) {
+				const z = ((row + 0.5) / rows - 0.5) * 2 * depth;
+				for (let column = 0; column < cols; column++) {
+					const x = ((column + 0.5) / cols - 0.5) * 2;
+					const distance = x * x + z * z;
+					let density: number;
+
+					if (distance < radiusSquared) {
+						// On the sphere. x, height and z already form a vector of
+						// length radius, so this is the exact surface normal, which
+						// is what keeps the terminator smooth.
+						const height = Math.sqrt(radiusSquared - distance);
+						const lambert = (x * lx + height * ly + z * lz) / RADIUS;
+						density = 1 - (AMBIENT + (1 - AMBIENT) * Math.max(0, lambert));
+					} else {
+						// On the ground: does the ray from here to the sun pass
+						// through the sphere?
+						const along = x * lx - RADIUS * ly + z * lz;
+						const gap = distance + RADIUS * RADIUS - radiusSquared;
+						const hit = along * along - gap;
+						const shadowed = hit > 0 && -along + Math.sqrt(hit) > 0;
+						const toward = Math.max(-1, Math.min(1, x * headingX + z * headingZ));
+						density = shadowed ? 1 - AMBIENT : GROUND_RANGE * (0.5 - 0.5 * toward);
+					}
+
+					cells[row * cols + column] =
+						density > bayerThreshold(column, row) ? CELL_INK : CELL_PAPER;
+				}
+			}
+
+			surface!.paint();
+
+			output!.textContent = `${playhead.toFixed(2)} turn`;
+			if (!scrubbing && document.activeElement !== input) input!.value = String(playhead);
+		}
+
+		function frame(now: number) {
+			if (!running) return;
+			if (last) playhead = (playhead + (now - last) / 1000 / LOOP_SECONDS) % 1;
+			last = now;
+			render();
+			requestAnimationFrame(frame);
+		}
+
+		function syncPlayback() {
+			const shouldRun = playing && visible && !document.hidden;
+			if (shouldRun === running) return;
+			running = shouldRun;
+			last = 0;
+			if (running) requestAnimationFrame(frame);
+		}
+
+		function setPlaying(next: boolean) {
+			playing = next;
+			playButton!.setAttribute('aria-pressed', String(next));
+			playButton!.textContent = next ? 'pause' : 'play';
+			syncPlayback();
+		}
+
+		input.addEventListener('input', () => {
+			playhead = Number(input.value);
+			if (!running) render();
+		});
+		input.addEventListener('pointerdown', () => {
+			scrubbing = true;
+		});
+		window.addEventListener('pointerup', () => {
+			scrubbing = false;
+		});
+
+		playButton.addEventListener('click', () => setPlaying(!playing));
+
+		let queued = false;
+		new ResizeObserver(() => {
+			if (queued) return;
+			queued = true;
+			requestAnimationFrame(() => {
+				queued = false;
+				surface.measure();
+				render();
+			});
+		}).observe(canvas);
+
+		new IntersectionObserver((entries) => {
+			visible = entries.some((entry) => entry.isIntersecting);
+			syncPlayback();
+		}).observe(root);
+
+		document.addEventListener('visibilitychange', syncPlayback);
+		reduced.addEventListener('change', () => setPlaying(!reduced.matches));
+
+		setPlaying(playing);
+		surface.measure();
+		render();
+	}
+
+	function setupLoopDemos() {
+		document.querySelectorAll<HTMLElement>('[data-loop-demo]').forEach(setupLoopDemo);
+	}
+
+	setupLoopDemos();
+	document.addEventListener('astro:page-load', setupLoopDemos);
+</script>

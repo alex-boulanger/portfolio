@@ -168,6 +168,13 @@ const active = { x: radius * Math.cos(theta), y: -radius * Math.sin(theta) };
 		.circle-demo { width: 100vw; }
 		.demo-grid { grid-template-columns: 1fr; }
 		.controls { padding-inline: 1rem; }
+		/* Full-bleed on mobile runs the slider to the browser's edge-swipe
+		   zone, where a drag gets stolen before the thumb ever moves. */
+		input[type='range'] {
+			width: calc(100% - 1rem);
+			margin-inline: 0.5rem;
+			touch-action: pan-y;
+		}
 	}
 </style>
 

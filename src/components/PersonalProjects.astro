@@ -6,7 +6,7 @@ interface Props {
 }
 
 const { projects } = Astro.props;
-const firstMedia = projects[0]?.data.media[0];
+const firstMedia = projects.find((project) => project.data.media.length > 0)?.data.media[0];
 
 const copy = {
 	media: 'Project image',
@@ -20,7 +20,7 @@ const copy = {
 			projects.map((project, projectIndex) => (
 				<article class="project" style={`--project-delay: ${0.18 + projectIndex * 0.1}s`}>
 					<div class="project-heading">
-						<h2>
+						<h2 class:list={{ 'modulartype-heading': project.id === 'modulartype' }}>
 							<a href={project.data.href}>
 								{project.data.title.split(' ').map((word, wordIndex, words) => (
 									<>
@@ -45,6 +45,7 @@ const copy = {
 						</a>
 					</div>
 
+					{project.data.media.length > 0 && (
 					<div class="media" aria-label={`${project.data.title} ${copy.media}`}>
 						{project.data.media.map((item, mediaIndex) => (
 								<figure class="media-item">
@@ -68,6 +69,7 @@ const copy = {
 								</figure>
 						))}
 					</div>
+					)}
 				</article>
 			))
 		}
@@ -83,6 +85,21 @@ const copy = {
 </section>
 
 <style>
+	@font-face {
+		font-family: 'Modulartype';
+		src: url('/modulartype-assets/modular-type.otf') format('opentype');
+		font-style: normal;
+		font-weight: 400;
+		font-display: swap;
+	}
+
+	.modulartype-heading {
+		font-family: 'Modulartype', ui-monospace, monospace;
+		font-synthesis: none;
+		line-height: 1.05;
+		letter-spacing: 0;
+	}
+
 	.personal-projects {
 		position: absolute;
 		inset: 0;
@@ -138,6 +155,7 @@ const copy = {
 		line-height: 0.88;
 		letter-spacing: -0.055em;
 		text-wrap: balance;
+		overflow-wrap: anywhere;
 	}
 
 	h2 a {

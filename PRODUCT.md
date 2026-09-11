@@ -36,7 +36,7 @@ An engineer whose site is itself the work sample. The interface is hand-built ra
 - Astro 7 static site, pnpm, Node ≥ 22.12. No UI framework or CSS framework in the dependency tree.
 - The site has one English route tree with no internationalisation layer.
 - Landing copy lives in `src/content/landing/home.md`; frontmatter holds title, description, and outbound links.
-- Personal project copy lives in `src/content/personal-projects`. `/personal-projects` exposes Serein Devices, Framefield, and Pen Plotter.
+- Personal project copy lives in `src/content/personal-projects`. `/personal-projects` exposes Modulartype, Serein Devices, Framefield, and Pen Plotter.
 - Long-form writing lives in a content collection at `/writing`.
 - Client-side routing via `ClientRouter`; the background canvas is `transition:persist`ed so navigation never restarts it.
 - Dark scheme only — `color-scheme: dark` is declared, and there is no light mode.

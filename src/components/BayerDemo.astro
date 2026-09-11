@@ -1,0 +1,335 @@
+---
+import { BAYER_8, BAYER_LEVELS, BAYER_SIZE } from '../lib/bayer';
+
+const density = 0.5;
+const unit = 24;
+const extent = BAYER_SIZE * unit;
+
+const cells = BAYER_8.map((value, index) => ({
+	value,
+	column: index % BAYER_SIZE,
+	row: Math.floor(index / BAYER_SIZE),
+	on: (value + 0.5) / BAYER_LEVELS < density,
+}));
+
+const onCount = cells.filter((cell) => cell.on).length;
+---
+
+<section class="bayer-demo" data-bayer-demo aria-label="An 8 by 8 Bayer matrix deciding which cells switch on">
+	<div class="demo-grid">
+		<div class="plot">
+			<svg viewBox={`0 0 ${extent} ${extent}`} role="img" aria-labelledby="bayer-title bayer-desc">
+				<title id="bayer-title">The 8 by 8 Bayer matrix</title>
+				<desc id="bayer-desc">
+					Sixty-four integers, 0 to 63, laid out so neighbouring cells hold values far apart. Cells whose threshold
+					has been passed are filled with ink.
+				</desc>
+				{
+					cells.map((cell) => (
+						<g data-cell data-value={cell.value} data-on={String(cell.on)}>
+							<rect x={cell.column * unit} y={cell.row * unit} width={unit} height={unit} />
+							<text x={cell.column * unit + unit / 2} y={cell.row * unit + unit / 2}>
+								{cell.value}
+							</text>
+						</g>
+					))
+				}
+			</svg>
+		</div>
+
+		<div class="controls">
+			<label>
+				<span>density <output data-density-output>{density.toFixed(2)}</output></span>
+				<input
+					data-density
+					type="range"
+					min="0"
+					max="1"
+					step="0.01"
+					value={density}
+					aria-label="Density, from 0 to 1"
+				/>
+			</label>
+
+			<dl class="values" aria-live="polite">
+				<div>
+					<dt>cells on</dt>
+					<dd data-count>{onCount} / {BAYER_LEVELS}</dd>
+				</div>
+			</dl>
+
+			<div class="swatch">
+				<span class="strip-label">that density, tiled</span>
+				<div class="frame">
+					<canvas data-swatch-canvas aria-label="The repeating pattern the matrix produces at the chosen density."
+					></canvas>
+				</div>
+			</div>
+
+			<div class="formula" aria-label="Ordered dither rule">
+				<code>t = (bayer8[(row % 8) * 8 + (column % 8)] + 0.5) / 64</code>
+			</div>
+
+			<noscript>
+				<p class="note">
+					With scripts off the matrix is frozen at a density of 0.50, where exactly half the cells have switched on.
+				</p>
+			</noscript>
+		</div>
+	</div>
+
+	<div class="result">
+		<span class="strip-label">the same field the hard cut ruined, ordered instead</span>
+		<div class="frame">
+			<canvas data-field-canvas aria-label="A gradient with soft hills, rendered as ink dots that thicken smoothly."
+			></canvas>
+		</div>
+	</div>
+</section>
+
+<style>
+	.bayer-demo {
+		width: min(92vw, 58rem);
+		margin: clamp(2rem, 5vw, 3.5rem) 50%;
+		text-shadow: none;
+		transform: translateX(-50%);
+	}
+
+	.demo-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+		gap: clamp(1.5rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.plot {
+		min-width: 0;
+		border: 1px solid var(--rule);
+		background: #c6c3bc;
+		color: #0a0a0a;
+		aspect-ratio: 1;
+	}
+
+	svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	rect {
+		fill: none;
+		stroke: rgb(10 10 10 / 0.16);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	text {
+		fill: rgb(10 10 10 / 0.62);
+		font: 9px ui-monospace, monospace;
+		text-anchor: middle;
+		dominant-baseline: central;
+	}
+
+	g[data-on='true'] rect { fill: #0a0a0a; }
+	g[data-on='true'] text { fill: #c6c3bc; }
+
+	.controls {
+		display: grid;
+		gap: 1.35rem;
+	}
+
+	label {
+		display: grid;
+		gap: 0.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+
+	label span {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	output { color: rgb(255 255 255 / 0.58); }
+
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--glitch);
+	}
+
+	input[type='range']:focus-visible {
+		outline: 1px solid var(--fg);
+		outline-offset: 4px;
+	}
+
+	.values {
+		margin: 0;
+		font-size: 0.75rem;
+	}
+
+	.values div {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding-bottom: 0.65rem;
+		border-bottom: 1px solid var(--rule);
+	}
+
+	.values dt { color: rgb(255 255 255 / 0.48); }
+	.values dd { margin: 0; }
+
+	.strip-label {
+		display: block;
+		margin-bottom: 0.5rem;
+		color: rgb(255 255 255 / 0.48);
+		font-size: 0.6875rem;
+		letter-spacing: 0.13em;
+	}
+
+	.frame {
+		border: 1px solid var(--rule);
+		background: #c6c3bc;
+	}
+
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.swatch .frame { height: 4.5rem; }
+
+	.result {
+		margin-top: clamp(1.5rem, 4vw, 2.5rem);
+	}
+
+	.result .frame { height: clamp(6rem, 16vw, 10rem); }
+
+	.formula {
+		padding-block: 1rem;
+		border-block: 1px solid var(--rule);
+	}
+
+	.formula code { font-size: clamp(0.7rem, 1.7vw, 0.82rem); }
+
+	.note {
+		margin: 0;
+		color: rgb(255 255 255 / 0.58);
+		font-size: 0.75rem;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 720px) {
+		.bayer-demo { width: 100vw; }
+		.demo-grid { grid-template-columns: 1fr; }
+		.controls { padding-inline: 1rem; }
+		/* Full-bleed on mobile runs the slider to the browser's edge-swipe
+		   zone, where a drag gets stolen before the thumb ever moves. */
+		input[type='range'] {
+			width: calc(100% - 1rem);
+			margin-inline: 0.5rem;
+			touch-action: pan-y;
+		}
+		.result { padding-inline: 1rem; }
+	}
+</style>
+
+<script>
+	import { BAYER_LEVELS, bayerThreshold } from '../lib/bayer';
+	import { createCellSurface, CELL_INK, CELL_PAPER, PAPER, INK } from '../lib/cellSurface';
+	import { demoDensity } from '../lib/demoField';
+
+	const SWATCH_CELL = 10;
+	const FIELD_CELL = 7;
+
+	function setupBayerDemo(root: HTMLElement) {
+		if (root.dataset.ready) return;
+		root.dataset.ready = 'true';
+
+		const slider = root.querySelector<HTMLInputElement>('[data-density]');
+		const readout = root.querySelector<HTMLOutputElement>('[data-density-output]');
+		const count = root.querySelector<HTMLElement>('[data-count]');
+		const swatchCanvas = root.querySelector<HTMLCanvasElement>('[data-swatch-canvas]');
+		const fieldCanvas = root.querySelector<HTMLCanvasElement>('[data-field-canvas]');
+		const matrixCells = Array.from(root.querySelectorAll<SVGGElement>('[data-cell]'));
+		if (!slider || !readout || !count || !swatchCanvas || !fieldCanvas || !matrixCells.length) return;
+
+		const palette = [PAPER, INK];
+		const swatch = createCellSurface(swatchCanvas, SWATCH_CELL, palette);
+		const field = createCellSurface(fieldCanvas, FIELD_CELL, palette);
+		if (!swatch || !field) return;
+
+		function drawSwatch() {
+			if (!swatch) return;
+			const density = Number(slider?.value);
+			const { cols, rows, cells } = swatch;
+			for (let row = 0; row < rows; row++) {
+				for (let column = 0; column < cols; column++) {
+					cells[row * cols + column] = density > bayerThreshold(column, row) ? CELL_INK : CELL_PAPER;
+				}
+			}
+			swatch.paint();
+		}
+
+		function drawField() {
+			if (!field) return;
+			const { cols, rows, cells } = field;
+			for (let row = 0; row < rows; row++) {
+				const v = rows > 1 ? row / (rows - 1) : 0;
+				for (let column = 0; column < cols; column++) {
+					const u = cols > 1 ? column / (cols - 1) : 0;
+					cells[row * cols + column] =
+						demoDensity(u, v) > bayerThreshold(column, row) ? CELL_INK : CELL_PAPER;
+				}
+			}
+			field.paint();
+		}
+
+		function drawMatrix() {
+			const density = Number(slider?.value);
+			let on = 0;
+			for (const cell of matrixCells) {
+				const value = Number(cell.dataset.value);
+				const lit = density > (value + 0.5) / BAYER_LEVELS;
+				if (lit) on += 1;
+				cell.dataset.on = String(lit);
+			}
+			count!.textContent = `${on} / ${BAYER_LEVELS}`;
+			readout!.textContent = density.toFixed(2);
+		}
+
+		slider.addEventListener('input', () => {
+			drawMatrix();
+			drawSwatch();
+		});
+
+		let queued = false;
+		const observer = new ResizeObserver(() => {
+			if (queued) return;
+			queued = true;
+			requestAnimationFrame(() => {
+				queued = false;
+				swatch.measure();
+				field.measure();
+				drawSwatch();
+				drawField();
+			});
+		});
+		observer.observe(swatchCanvas);
+		observer.observe(fieldCanvas);
+
+		drawMatrix();
+		swatch.measure();
+		field.measure();
+		drawSwatch();
+		drawField();
+	}
+
+	function setupBayerDemos() {
+		document.querySelectorAll<HTMLElement>('[data-bayer-demo]').forEach(setupBayerDemo);
+	}
+
+	setupBayerDemos();
+	document.addEventListener('astro:page-load', setupBayerDemos);
+</script>

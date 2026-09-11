@@ -2,9 +2,9 @@
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 
-const articles = (await getCollection('articles', ({ data }) => !data.draft)).sort(
-	(a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf(),
-);
+const articles = (await getCollection('articles', ({ data }) => !data.draft))
+	.sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
+	.map((entry) => ({ entry, preview: entry.data.preview ?? entry.data.hero }));
 ---
 
 <Base
@@ -19,16 +19,16 @@ const articles = (await getCollection('articles', ({ data }) => !data.draft)).so
 
 		<div class="articles">
 			{
-				articles.map((entry) => (
+				articles.map(({ entry, preview }) => (
 					<article>
 						<a href={`/writing/${entry.id}`} data-no-scramble>
 							<img
-								src={entry.data.hero.src}
-								srcset={entry.data.hero.srcset}
+								src={preview.src}
+								srcset={preview.srcset}
 								sizes="(max-width: 900px) 100vw, 70vw"
-								alt={entry.data.hero.alt}
-								width={entry.data.hero.width}
-								height={entry.data.hero.height}
+								alt={preview.alt}
+								width={preview.width}
+								height={preview.height}
 							/>
 							<div class="article-copy">
 								<p class="meta">
@@ -80,7 +80,7 @@ const articles = (await getCollection('articles', ({ data }) => !data.draft)).so
 	}
 	article > a:hover, article > a:focus-visible { background: transparent; }
 	article > a:hover h2, article > a:focus-visible h2 { color: var(--glitch); }
-	img { display: block; width: 100%; height: auto; background: #e9e5da; }
+	img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; background: #e9e5da; }
 	.article-copy { padding-top: 0.2rem; }
 	h2 { margin: 0; font-size: clamp(2rem, 5vw, 4.5rem); font-weight: 400; line-height: 0.95; letter-spacing: -0.055em; transition: color 150ms; }
 	.article-copy > p:not(.meta) { margin: 1.25rem 0 2rem; color: rgb(255 255 255 / 0.72); line-height: 1.7; }
